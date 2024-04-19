@@ -13,7 +13,7 @@ SERVER_DATA_PATH = "server_data" #need define
 client_list = []
 client_ips = []
 peer_has_file = []
-# file_list = ['a.txt'.]
+file_list = {}
 
 def handle_client(conn, addr):
     print(f"[NEW CONNECTION] {addr} connected.")
@@ -32,13 +32,18 @@ def handle_client(conn, addr):
             # print(otherPeer)
 
         if cmd == "LIST":
-            files = os.listdir(SERVER_DATA_PATH)
             send_data = "OK@"
-
-            if len(files) == 0:
-                send_data += "The server directory is empty"
+            if len(file_list) == 0:
+                send_data += "There is no file for you to access."
             else:
-                send_data += "\n".join(f for f in files)
+                send_data += str(file_list)
+            # files = os.listdir(SERVER_DATA_PATH)
+            # send_data = "OK@"
+
+            # if len(files) == 0:
+            #     send_data += "The server directory is empty"
+            # else:
+            #     send_data += "\n".join(f for f in files)
             conn.send(send_data.encode(FORMAT))
         elif cmd == "YES":
             peer_has_file.append(conn)
@@ -80,65 +85,128 @@ def handle_client(conn, addr):
             # conn.send(f"GIVE@{client_ips[0]}".encode(FORMAT))
             
         elif cmd == "UPLOAD":
-            name, size = data[1], data[2]
-            filepath = os.path.join(SERVER_DATA_PATH, name)
-
-            conn.send("Start uploading..".encode(FORMAT))
-            
-            file_byte = b""
-
-            done = False
-
-            progress = tqdm.tqdm(unit = "B", unit_scale = True, unit_divisor = 1000,
-                                 total = int(size))
-
-            while not done:
-                # print("Down..")
-                data = conn.recv(SIZE)
-                # print(data)
-                if data == b"<END>":
-                    done = True
-                else:
-                    file_byte += data
-                    conn.send("OK".encode(FORMAT))
-                # print("end if")
-                progress.update(SIZE)
-                # print("end 1 loop")
-            
-            with open(filepath, "wb") as f:
-                f.write(file_byte)
-
-            send_data = "OK@File uploaded successfully."
-            conn.send(send_data.encode(FORMAT))
-
-        elif cmd == "DOWNLOAD":
             filename = data[1]
 
-            filepath = os.path.join(SERVER_DATA_PATH, filename)
+            temp_list = file_list[client_ips[client_list.index(conn)]]
+            temp_list.append(filename)
 
-            with open(f"{filepath}", "rb") as f:
-                text = f.read()
+            file_list[client_ips[client_list.index(conn)]] = temp_list
+
+            conn.send("OK@Server has received your file.".encode())
+
+            print(file_list)
+            # name, size = data[1], data[2]
+            # filepath = os.path.join(SERVER_DATA_PATH, name)
+
+            # conn.send("Start uploading..".encode(FORMAT))
             
-            size = os.path.getsize(filepath)
+            # file_byte = b""
 
-            send_data = f"Start downloading..@{size}"
-            conn.send(send_data.encode(FORMAT))
+            # done = False
 
-            conn.recv(SIZE)
+            # progress = tqdm.tqdm(unit = "B", unit_scale = True, unit_divisor = 1000,
+            #                      total = int(size))
+
+            # while not done:
+            #     # print("Down..")
+            #     data = conn.recv(SIZE)
+            #     # print(data)
+            #     if data == b"<END>":
+            #         done = True
+            #     else:
+            #         file_byte += data
+            #         conn.send("OK".encode(FORMAT))
+            #     # print("end if")
+            #     progress.update(SIZE)
+            #     # print("end 1 loop")
             
-            if(text):
-                conn.sendall(text)
-                # conn.recv(SIZE).decode(FORMAT)
-            conn.send(b"<END>")
+            # with open(filepath, "wb") as f:
+            #     f.write(file_byte)
 
-            # print("end")
+            # send_data = "OK@File uploaded successfully."
+            # conn.send(send_data.encode(FORMAT))
 
-            conn.recv(SIZE)
+        elif cmd == "DOWNLOAD":
+            rec_data = data[1]
+            print(rec_data)
+            rec_data = rec_data.split(":")
+            print(rec_data)
+            filename = rec_data[0]
 
-            f.close()
+            peername = rec_data[1]
+            peername = peername.split(",")
 
-            send_data = "OK@File downloaded successfully."
-            conn.send(send_data.encode(FORMAT))
+            peerIp = peername[0]
+            peerPort = peername[1]
+
+            # peername = peername.split(",")
+
+            # peerIp = peername[0]
+            # peerport = int(peername[1])
+
+            # print(len(client_list))
+            # for client in client_list:
+                # print(client)
+                # print("sock------")
+            sender_server_id = client_ips.index(f"'{peerIp}',{peerPort}")
+            sender = client_list[sender_server_id]
+
+            sock = -1
+            try:
+                print(file_list[client_ips[sender_server_id]])
+                sock = file_list[client_ips[sender_server_id]].index(filename)
+            except:
+                # print(file_list[client_ips[sender_server_id]])
+                sock = -1
+            # sender.send(f"FIND@{filename}".encode(FORMAT))
+            #     # print("sock------")
+            # sock = sender.recv(SIZE).decode(FORMAT)
+                # print(sock)
+                # print("sock------")
+            # if(sock == "YES"):
+            if(sock < 0):
+                conn.send(f"OK@There is no '{filename}' in {peername}".encode(FORMAT))
+            else :
+                conn.send(f"GIVE@{client_ips[client_list.index(sender)]}@{filename}".encode(FORMAT))
+                # conn.send(f"OK@There is '{filename}' in {peername}".encode(FORMAT))
+                
+
+            # print(peer_has_file)
+            # print(client_list)
+
+            # if(conn == client_list[client_ips.index(data[1])]):
+            #     print("adu")
+            # print(client_ips[client_list.index(conn)])
+            # client_list[client_ips.index(data[1])].send(f"GIVE@{client_ips[client_list.index(conn)]}".encode(FORMAT))
+            
+
+            # filename = data[1]
+
+            # filepath = os.path.join(SERVER_DATA_PATH, filename)
+
+            # with open(f"{filepath}", "rb") as f:
+            #     text = f.read()
+            
+            # size = os.path.getsize(filepath)
+
+            # send_data = f"Start downloading..@{size}"
+            # conn.send(send_data.encode(FORMAT))
+
+            # conn.recv(SIZE)
+            
+            # if(text):
+            #     conn.sendall(text)
+            #     # conn.recv(SIZE).decode(FORMAT)
+            # conn.send(b"<END>")
+
+            # # print("end")
+
+            # conn.recv(SIZE)
+
+            # f.close()
+
+            # send_data = "OK@File downloaded successfully."
+            # conn.send(send_data.encode(FORMAT))
 
         elif cmd == "DELETE":
             files = os.listdir(SERVER_DATA_PATH)
@@ -168,12 +236,13 @@ def handle_client(conn, addr):
             break
         elif cmd == "HELP":
             data = "OK@"
-            data += "LIST: List all the files from the server.\n"
+            data += "LIST: List all peers and its file.\n"
             data += "PEERS: List all peers.\n"
-            data += "REQ <PeerIp>,<PeerPort>: Connect to peer has <PORT>. Ex: REQ 127.0.0.1 12345\n"
-            data += "UPLOAD <path>: Upload a file to the server.\n"
-            data += "DOWNLOAD <path>: Download a file from  the server.\n"
-            data += "DELETE <filename>: Delete a file from the server.\n"
+            data += "REQ <file>: Find <file> and download it from 1 peer has it \n"
+            data += "UPLOAD <filename>: Upload file to the server know you have it.\n"
+            # data += "DOWNLOAD <path>: Download a file from  the server.\n"
+            data += "DOWNLOAD <file> <peername>: Download <file> from <peername>.\n"
+            # data += "DELETE <filename>: Delete a file from the server.\n"
             data += "LOGOUT: Disconnect from the server.\n"
             data += "HELP: List all the commands."
 
@@ -182,7 +251,7 @@ def handle_client(conn, addr):
             conn.send("OK@metvl".encode())
 
     print(f"[DISCONNECTED] {addr} disconnected")
-    client_list.remove(conn.getpeername())
+    client_list.remove(conn)
     conn.close()
 
 # mylist = []
@@ -225,8 +294,11 @@ def main():
         peerSocket = conn.recv(1024).decode(FORMAT)
         peerSocket = peerSocket.replace("(", "")
         peerSocket = peerSocket.replace(")", "")
+
+        file_list[peerSocket] = []
         client_ips.append(peerSocket)
         client_list.append(conn)
+
         print(client_list)
         print(client_ips)
         # print(conn)

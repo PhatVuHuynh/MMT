@@ -7,7 +7,7 @@ PORT = 4456
 ADDR = (IP, PORT)
 
 PEER_SERVER_IP = 'localhost'
-PEER_SERVER_PORT = 5112
+PEER_SERVER_PORT = 5111
 
 FORMAT = "utf-8"
 SIZE = 1024
@@ -33,7 +33,8 @@ def handlePconnect(conn, addr):
     print(data)
     conn.send("Chuan bi nhan ne".encode())
 
-    filename = "2114391.png"
+    # filename = "2114391.png"
+    filename = conn.recv(1024).decode()
 
     filepath = os.path.join(SERVER_DATA_PATH, filename)
 
@@ -62,7 +63,7 @@ def handlePconnect(conn, addr):
     # p_client.send(send_data.encode(FORMAT))
 
 
-def peer_client(host, port):
+def peer_client(host, port, filename):
     p_client = socket.socket()
     p_client.connect((host, port))
 
@@ -72,7 +73,8 @@ def peer_client(host, port):
 
     print(f"Receiver: {p_client.getsockname()}")
 
-    filename = "2114391.png"
+    # filename = "2114391.png"
+    p_client.send(filename.encode(FORMAT))
 
     filepath = os.path.join(PEER_PATH, filename)
 
@@ -175,7 +177,9 @@ def sen(client):
     while True:
         print("startloop")
         data = client.recv(SIZE).decode(FORMAT)
-        cmd, msg = data.split("@")
+        print(data)
+        data = data.split("@")
+        cmd, msg = data[0], data[1]
 
         if cmd == "DISCONNECTED":
             print(f"[SERVER]: {msg}")
@@ -203,19 +207,19 @@ def sen(client):
             print(peerName)
             print(peerPort)
             # peerName = "localhost"
-            thrClient = threading.Thread(target=peer_client, args=(peerName, peerPort))
+            thrClient = threading.Thread(target=peer_client, args=(peerName, peerPort, data[2]))
             thrClient.start()
         #     if(peerName) print((PEER_SERVER_IP, PEER_SERVER_PORT))
 
         # if(cmd != "FIND") :
-        print("bef")
+        # print("bef")
         data = input("> ")
-        print(data)
+        # print(data)
         data = data.split(" ")
-        print(data)
+        # print(data)
         cmd = data[0]
-        print(cmd)
-        print("af")
+        # print(cmd)
+        # print("af")
 
         if cmd == "HELP":
             client.send(cmd.encode(FORMAT))
@@ -237,72 +241,83 @@ def sen(client):
         elif cmd == "UPLOAD":
             filename = data[1]
 
-            filepath = os.path.join(PEER_PATH, filename)
+            # filepath = os.path.join(PEER_PATH, filename)
 
-            with open(f"{filepath}", "rb") as f:
-                text = f.read()
+            # with open(f"{filepath}", "rb") as f:
+            #     text = f.read()
 
             # filename = filepath.split("/")[-1]
-            filesize = os.path.getsize(filepath)
+            # filesize = os.path.getsize(filepath)
 
-            send_data = f"{cmd}@{filename}@{filesize}"
+            # send_data = f"{cmd}@{filename}@{filesize}"
+            send_data = f"{cmd}@{filename}"
             client.send(send_data.encode(FORMAT))
 
-            start = client.recv(SIZE).decode(FORMAT)
+            # mes = client.recv(SIZE).decode(FORMAT)
+            # print(mes)
             
-            if start == "Start uploading..":
-                print(start)
-                if(text) :
-                    client.sendall(text)
-                    print(client.recv(SIZE).decode(FORMAT))
-                client.send("<END>".encode(FORMAT))
+            # if start == "Start uploading..":
+            #     print(start)
+            #     if(text) :
+            #         client.sendall(text)
+            #         print(client.recv(SIZE).decode(FORMAT))
+            #     client.send("<END>".encode(FORMAT))
 
-                f.close()
+            #     f.close()
             
         elif cmd == "DOWNLOAD":
             filename = data[1]
 
-            # filename = path.split("/")[-1]
+            peerIp = data[2]
+            peerport = data[3]
 
-            filepath = os.path.join(PEER_PATH, filename)
+            # peername = peername.split(",")
 
-            send_data = f"{cmd}@{filename}"
-            client.send(send_data.encode(FORMAT))
+            # peerIp = peername[0]
+            # peerport = int(peername[1])
+            client.send(f"{cmd}@{filename}:{peerIp} {peerport}".encode(FORMAT))
 
-            start = client.recv(SIZE).decode(FORMAT)
-            mes, size = start.split('@')
-            client.send(mes.encode(FORMAT))
+            # filename = data[1]
+
+            # filepath = os.path.join(PEER_PATH, filename)
+
+            # send_data = f"{cmd}@{filename}"
+            # client.send(send_data.encode(FORMAT))
+
+            # start = client.recv(SIZE).decode(FORMAT)
+            # mes, size = start.split('@')
+            # client.send(mes.encode(FORMAT))
             
-            if mes == "Start downloading..":
-                print(mes)
-                file_byte = b""
+            # if mes == "Start downloading..":
+            #     print(mes)
+            #     file_byte = b""
 
-                done = False
+            #     done = False
 
-                progress = tqdm.tqdm(unit = "B", unit_scale = True, unit_divisor = 1000,
-                                    total = int(size))
+            #     progress = tqdm.tqdm(unit = "B", unit_scale = True, unit_divisor = 1000,
+            #                         total = int(size))
 
-                while not done:
-                    # print("Down..")
-                    data = client.recv(SIZE)
-                    # print(file_byte)
+            #     while not done:
+            #         # print("Down..")
+            #         data = client.recv(SIZE)
+            #         # print(file_byte)
                     
-                    if data[-5:] == b"<END>":
-                        file_byte += data[:-5]
-                        done = True
-                        client.send("OK".encode(FORMAT))
-                    else:
-                        # print(data)
-                        file_byte += data
-                        # client.send("OK".encode(FORMAT))
-                    # print("end if")
-                    progress.update(SIZE)
-                    # print("end 1 loop")
+            #         if data[-5:] == b"<END>":
+            #             file_byte += data[:-5]
+            #             done = True
+            #             client.send("OK".encode(FORMAT))
+            #         else:
+            #             # print(data)
+            #             file_byte += data
+            #             # client.send("OK".encode(FORMAT))
+            #         # print("end if")
+            #         progress.update(SIZE)
+            #         # print("end 1 loop")
 
-                with open(filepath, "wb") as f:
-                    f.write(file_byte)
+            #     with open(filepath, "wb") as f:
+            #         f.write(file_byte)
 
-                client.send("Finished Downloading.".encode(FORMAT))  
+            #     client.send("Finished Downloading.".encode(FORMAT))  
         else:
             print("pass")
             client.send("pass".encode())
