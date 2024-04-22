@@ -7,5 +7,6 @@
     + Syntax: LIST 
 
 **How to run:**
-  1. python .\tracker
-  2. python .\peer <peer_ip> <peer_port> <shared_file> <downloaded_file> : <shared_file> <downloaded_file> is optional
+  1. Define TRACKER_IP and TRACKER_PORT in tracker.py and peer.py
+  2. python .\tracker
+  3. python .\peer <peer_ip> <peer_port> <shared_file> <downloaded_file> : <shared_file> <downloaded_file> is optional
