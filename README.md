@@ -8,4 +8,4 @@
 
 **How to run:**
   1. python .\tracker
-  2. python .\peer <ip> <port> <shared_file> <downloaded_file> : <shared_file> <downloaded_file> is optional
+  2. python .\peer <peer_ip> <peer_port> <shared_file> <downloaded_file> : <shared_file> <downloaded_file> is optional
