@@ -3,7 +3,7 @@ import threading, os
 import json
 import math
 
-TRACKER_IP = '172.17.24.28'
+TRACKER_IP = '192.168.1.1'
 TRACKER_PORT = 9999
 
 class Tracker:
@@ -51,7 +51,7 @@ class Tracker:
                 elif command == 'request':
                     print(data)
                     filename = data['file']
-                    print(filename[-2:])
+                    # print(filename[-2:])
                     if(filename[-1:] == "\\"):
                         available_peers = []
                         for peer_addr, peer_info in self.peers.items():
@@ -100,8 +100,9 @@ class Tracker:
                 elif command == 'UPLOAD':
                     try:
                         print(data['metainfo'])
-                        if(data['metainfo'][0]['is_folder']):
-                            for metainfo in data['metainfo']:
+                        for metainfo in data['metainfo']:
+                            if(metainfo['is_folder']):
+                                # for metainfo in data['metainfo']:
                                 self.peers[addr]['folders'].append(metainfo['name'])
                                 print(metainfo)
                                 for file in metainfo['files']:
@@ -114,18 +115,18 @@ class Tracker:
                                     # print(1)
                                     self.peers[addr]['files'].append(file)
                                     print(file)
-                        else:
-                            metainfo = data['metainfo'][0]
-                            print(metainfo)
-                            self.peers[addr]['sizes'].append(metainfo['sizes'])
-                            print(metainfo['sizes'])
-                            self.peers[addr]['pieces'].append(metainfo['num_pieces'])
-                            print(metainfo['num_pieces'])
-                            file = metainfo['files']
-                            # file = os.path.join(metainfo['name'], file)
-                            # print(1)
-                            self.peers[addr]['files'].append(file)
-                            print(file)
+                            else:
+                                # metainfo = data['metainfo']
+                                print(metainfo)
+                                self.peers[addr]['sizes'].append(metainfo['sizes'])
+                                print(metainfo['sizes'])
+                                self.peers[addr]['pieces'].append(metainfo['num_pieces'])
+                                print(metainfo['num_pieces'])
+                                file = metainfo['files']
+                                # file = os.path.join(metainfo['name'], file)
+                                # print(1)
+                                self.peers[addr]['files'].append(file)
+                                print(file)
                         
                         print(self.peers[addr])
                         client_socket.send("Server has received your file.".encode())

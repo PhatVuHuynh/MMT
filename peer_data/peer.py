@@ -5,9 +5,9 @@ import sys
 import os
 import tqdm
 
-TRACKER_IP = '172.17.24.28'
+TRACKER_IP = '192.168.1.1'
 TRACKER_PORT = 9999
-PIECE_SIZE = 1024
+PIECE_SIZE = 2 ** 20
 FORMAT = 'utf-8'
 MAX_LISTEN = 100
 
@@ -27,12 +27,11 @@ class Peer:
             sizes.append(os.path.getsize(file))
         self.sizes = sizes
         
-
         # connect to tracker
         self.client_to_tracker = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.client_to_tracker.connect((self.tracker_host, self.tracker_port))
         self.register_with_tracker()
-
+        
         # socket to connect other peer
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((self.my_ip, self.my_port))
@@ -58,11 +57,11 @@ class Peer:
         # with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
         #     client_socket.connect((self.tracker_host, self.tracker_port))
         message = json.dumps({'command': 'request', 'file': filename})
-        print(1)
-        print(filename)
+        # print(1)
+        # print(filename)
         with self.part_data_lock:
             self.client_to_tracker.send(message.encode())
-            response = self.client_to_tracker.recv(1024)
+            response = self.client_to_tracker.recv(PIECE_SIZE)
         if not response:
             print("No data received")
             return None
@@ -72,22 +71,22 @@ class Peer:
             print("Failed to decode JSON from response")
             return None
 
-    def request_peer_info(self, filename, ip, port):
-        message = json.dumps({'command': 'DOWNLOAD', 
-                                      'file': filename,
-                                      'ip': ip,
-                                      'port': port
-                                    }).encode()
-        self.client_to_tracker.send(message)
-        response = self.client_to_tracker.recv(1024)
-        if not response:
-            print(f"No data received from {ip}, {port}")
-            return None
-        try:
-            return json.loads(response.decode())
-        except json.JSONDecodeError:
-            print("Failed to decode JSON from response")
-            return None
+    # def request_peer_info(self, filename, ip, port):
+    #     message = json.dumps({'command': 'DOWNLOAD', 
+    #                                   'file': filename,
+    #                                   'ip': ip,
+    #                                   'port': port
+    #                                 }).encode()
+    #     self.client_to_tracker.send(message)
+    #     response = self.client_to_tracker.recv(PIECE_SIZE)
+    #     if not response:
+    #         print(f"No data received from {ip}, {port}")
+    #         return None
+    #     try:
+    #         return json.loads(response.decode())
+    #     except json.JSONDecodeError:
+    #         print("Failed to decode JSON from response")
+    #         return None
 
     # receive file (dữ liệu nhận ghi vào filename)
     def download_piece(self, ip_sender, port_sender, filename, start, end, part_data):
@@ -130,11 +129,13 @@ class Peer:
 
             done = False
 
-            progress = tqdm.tqdm(unit="B", unit_scale=True, unit_divisor=1000, total=int(end-start))
+            progress = tqdm.tqdm(unit="B", unit_scale=True, 
+                                 unit_divisor=1000, 
+                                 total=int(end-start))
             
             while not done:
                 data = s.recv(PIECE_SIZE)
-                print(data)
+                # print(data)
                 if data[-5:] == b"<END>":
                     done = True
                     file_bytes += data[:-5]
@@ -196,8 +197,8 @@ class Peer:
             else:
                 print("No data received.")
 
-            print(filename)
-            print(self.files)
+            # print(filename)
+            # print(self.files)
             if filename in self.files:
                 # file_size = os.path.getsize(filename)
                 # client_socket.sendall(f"{filename:<PIECE_SIZE}".encode())
@@ -206,11 +207,11 @@ class Peer:
                     file.seek(start)
                     numbytes = end - start
                     data = file.read(numbytes)
-                    print(data)
+                    # print(data)
                     client_socket.sendall(data)
-                    print("end")
+                    # print("end")
                     client_socket.send(b"<END>")
-                    print("end")
+                    # print("end")
                 file.close()
 
         except Exception as e:
@@ -240,65 +241,76 @@ class Peer:
                 
                 print(peer_list)
             elif cmd == "UPLOAD":
-                file_path = data[1]
+                file_paths = data[1]
+
+                file_paths = file_paths.split(",")
 
                 metainfo = []
                 files = []
-
-                # Check if the input path is a file or a directory
-                if os.path.isdir(file_path):
-                    # Multiple-file mode
-                    
-                    sizes = []
-                    pieces = []
-                    
-                    for root, _, filenames in os.walk(file_path):
-                        print(root)
-                        print(filenames)
-                        for filename in filenames:
-                            file_abs_path = os.path.join(root, filename)
-                            file_rel_path = os.path.relpath(file_abs_path, file_path)
-                            
-                            file_size = os.path.getsize(file_abs_path)
-                            files.append(file_rel_path)
-                            sizes.append(file_size)
-
-                            self.files.append(file_abs_path)
-
-                            pieces.append(math.ceil(file_size/PIECE_SIZE))
-                    
-                    metainfo.append({
-                        'name': file_path,
-                        'is_folder': True,
-                        'files': files,
-                        'sizes': sizes,
-                        'num_pieces': pieces
-                    })
+                invalid = False
                 
-                elif os.path.isfile(file_path):
-                    size = os.path.getsize(file_path)
-                    files.append(('', size))
+                for file_path in file_paths:
+                    # Check if the input path is a file or a directory
+                    if os.path.isdir(file_path):
+                        # Multiple-file mode
+                        
+                        sizes = []
+                        pieces = []
+                        
+                        for root, _, filenames in os.walk(file_path):
+                            print(root)
+                            print(filenames)
+                            for filename in filenames:
+                                file_abs_path = os.path.join(root, filename)
+                                file_rel_path = os.path.relpath(file_abs_path, file_path)
+                                
+                                file_size = os.path.getsize(file_abs_path)
+                                files.append(file_rel_path)
+                                sizes.append(file_size)
 
-                    self.files.append(file_path)
+                                self.files.append(file_abs_path)
 
-                    num_piece = math.ceil(size/PIECE_SIZE)
+                                pieces.append(math.ceil(file_size/PIECE_SIZE))
+                        
+                        metainfo.append({
+                            'name': file_path,
+                            'is_folder': True,
+                            'files': files,
+                            'sizes': sizes,
+                            'num_pieces': pieces
+                        })
                     
-                    metainfo.append({
-                        'name': '',
-                        'is_folder': False,
-                        'files': file_path,
-                        'sizes': size,
-                        'num_pieces': num_piece
-                    })
+                    elif os.path.isfile(file_path):
+                        size = os.path.getsize(file_path)
+                        files.append(('', size))
 
-                else:
-                    print("Invalid input path.")
+                        self.files.append(file_path)
+
+                        num_piece = math.ceil(size/PIECE_SIZE)
+                        
+                        metainfo.append({
+                            'name': '',
+                            'is_folder': False,
+                            'files': file_path,
+                            'sizes': size,
+                            'num_pieces': num_piece
+                        })
+
+                    else:
+                        invalid = True
+                        print("Invalid input path.")
+                        continue
+
+                    print(files)
+                    files = []
+
+                if(invalid):
                     continue
                 
-                print(files)
                 print(metainfo)
 
                 message = json.dumps({'command': 'UPLOAD', 'metainfo': metainfo}).encode()
+                print(message)
                 self.client_to_tracker.send(message)
 
                 response = self.client_to_tracker.recv(1024).decode()
@@ -358,44 +370,83 @@ class Peer:
             data = b''
             threads = []
 
-            if(pieces < n):
-                start_piece, end_piece = [],[]
-                for i in range(pieces):
-                    start_piece.append(i)
-                    end_piece.append(i+1)
-                for i in range(pieces):
-                    thread = threading.Thread(target=self.download_piece, args=(ip_list[i], port_list[i], file_name, start_piece[i]*PIECE_SIZE, end_piece[i]*PIECE_SIZE, part_data))
-                    threads.append(thread)
-                    thread.start()
-                for thread in threads:
-                    thread.join()
-            else:
-                chunk_size = pieces // n  # Kích thước của mỗi khoảng
+            if (n == 1):
+                # mặc định 3 luồng xử lí cùng, 
+                #có thể chỉnh sửa nhập input cho number thread
+                number_thread = 3
+                if (pieces < number_thread):
+                    start_piece, end_piece = [],[]
+                    for i in range(pieces):
+                        start_piece.append(i)
+                        end_piece.append(i+1)
+                    for i in range(pieces):
+                        thread = threading.Thread(target=self.download_piece, args=(ip_list[0], port_list[0], file_name, start_piece[i]*PIECE_SIZE, end_piece[i]*PIECE_SIZE, part_data))
+                        threads.append(thread)
+                        thread.start()
+                    # for thread in threads:
+                    #     thread.join()
+                else:
+                    chunk_size = pieces // number_thread  # Kích thước của mỗi khoảng
+                    remainder = pieces % number_thread  # Phần dư
+
+                    start_piece = [i * chunk_size + min(i, remainder) for i in range(number_thread)]  # Mảng start_byte
+                    end_piece = [(i + 1) * chunk_size + min(i + 1, remainder) for i in range(number_thread)]  # Mảng end_byte
+
+                    print(f"Downloading file from {ip_list[0]}:{port_list[0]}")
+                    for i in range(number_thread):
+                        if i < number_thread - 1:
+                            thread = threading.Thread(target=self.download_piece, args=(ip_list[0], port_list[0], file_name, start_piece[i]*PIECE_SIZE, end_piece[i]*PIECE_SIZE, part_data))
+                        else:
+                            if lastpiece_size == 0:
+                                thread = threading.Thread(target=self.download_piece, args=(ip_list[0], port_list[0], file_name, start_piece[i]*PIECE_SIZE, end_piece[i]*PIECE_SIZE, part_data))
+                            else:
+                                thread = threading.Thread(target=self.download_piece, args=(ip_list[0], port_list[0], file_name, start_piece[i]*PIECE_SIZE, (end_piece[i]-1)*PIECE_SIZE + lastpiece_size, part_data))
+                        threads.append(thread)
+                        thread.start()
+                        
+                        # threading.Thread(target=peer.download_file, args=(ip_list[i], port_list[i], requested_file, start_byte[i], end_byte[i])).start()
                 
-                remainder = pieces % n  # Phần dư
-
-                start_piece = [i * chunk_size + min(i, remainder) for i in range(n)]  # Mảng start_byte
-                end_piece = [(i + 1) * chunk_size + min(i + 1, remainder) for i in range(n)]  # Mảng end_byte
-
-                print(start_piece)
-                print(end_piece)
-
-                for i in range(len(ip_list)):
-                    print(f"Downloading file from {ip_list[i]}:{port_list[i]}")
-                    if i < len(ip_list) - 1:
+                    # for thread in threads:
+                    #     thread.join()
+            else:
+                if(pieces < n):
+                    start_piece, end_piece = [],[]
+                    for i in range(pieces):
+                        start_piece.append(i)
+                        end_piece.append(i+1)
+                    for i in range(pieces):
                         thread = threading.Thread(target=self.download_piece, args=(ip_list[i], port_list[i], file_name, start_piece[i]*PIECE_SIZE, end_piece[i]*PIECE_SIZE, part_data))
-                    else:
-                        if lastpiece_size == 0:
+                        threads.append(thread)
+                        thread.start()
+                    # for thread in threads:
+                    #     thread.join()
+                else:
+                    chunk_size = pieces // n  # Kích thước của mỗi khoảng
+                    
+                    remainder = pieces % n  # Phần dư
+
+                    start_piece = [i * chunk_size + min(i, remainder) for i in range(n)]  # Mảng start_byte
+                    end_piece = [(i + 1) * chunk_size + min(i + 1, remainder) for i in range(n)]  # Mảng end_byte
+
+                    # print(start_piece)
+                    # print(end_piece)
+
+                    for i in range(len(ip_list)):
+                        print(f"Downloading file from {ip_list[i]}:{port_list[i]}")
+                        if i < len(ip_list) - 1:
                             thread = threading.Thread(target=self.download_piece, args=(ip_list[i], port_list[i], file_name, start_piece[i]*PIECE_SIZE, end_piece[i]*PIECE_SIZE, part_data))
                         else:
-                            thread = threading.Thread(target=self.download_piece, args=(ip_list[i], port_list[i], file_name, start_piece[i]*PIECE_SIZE, (end_piece[i]-1)*PIECE_SIZE + lastpiece_size, part_data))
-                    threads.append(thread)
-                    thread.start()
-                    
-                    # threading.Thread(target=peer.download_file, args=(ip_list[i], port_list[i], requested_file, start_byte[i], end_byte[i])).start()
+                            if lastpiece_size == 0:
+                                thread = threading.Thread(target=self.download_piece, args=(ip_list[i], port_list[i], file_name, start_piece[i]*PIECE_SIZE, end_piece[i]*PIECE_SIZE, part_data))
+                            else:
+                                thread = threading.Thread(target=self.download_piece, args=(ip_list[i], port_list[i], file_name, start_piece[i]*PIECE_SIZE, (end_piece[i]-1)*PIECE_SIZE + lastpiece_size, part_data))
+                        threads.append(thread)
+                        thread.start()
+                        
+                        # threading.Thread(target=peer.download_file, args=(ip_list[i], port_list[i], requested_file, start_byte[i], end_byte[i])).start()
             
-                for thread in threads:
-                    thread.join()
+            for thread in threads:
+                thread.join()
 
             part_data.sort(key=lambda x: x[0])
 
@@ -407,11 +458,12 @@ class Peer:
             
             try:
                 file = open(file_name, "wb")
+                file.write(data)
+
+                file.close()
             except Exception as e:
                 print(e)
-            file.write(data)
-
-            file.close()
+            
             print(f"File {file_name} has been downloaded.")
         else:
             print("No peer found with the requested file.")
@@ -434,7 +486,10 @@ class Peer:
 if __name__ == "__main__":
     my_ip = sys.argv[1]
     my_port = int(sys.argv[2])
-    files = sys.argv[3].split(',')
+    files = []
+    
+    if len(sys.argv) > 3:
+        files = sys.argv[3].split(',')
 
     peer = Peer(TRACKER_IP, TRACKER_PORT, my_ip, my_port, files)
 
