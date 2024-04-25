@@ -5,7 +5,7 @@ import sys
 import os
 import tqdm
 
-TRACKER_IP = '192.168.1.1'
+TRACKER_IP = '192.168.1.166'
 TRACKER_PORT = 9999
 PIECE_SIZE = 2 ** 20
 FORMAT = 'utf-8'
@@ -28,18 +28,41 @@ class Peer:
         self.sizes = sizes
         
         # connect to tracker
-        self.client_to_tracker = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.client_to_tracker.connect((self.tracker_host, self.tracker_port))
-        self.register_with_tracker()
-        
-        # socket to connect other peer
-        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_socket.bind((self.my_ip, self.my_port))
-        self.server_socket.listen(MAX_LISTEN)
-        
-        # while True:   
-        #     client_socket, addr = self.server_socket.accept()
-        threading.Thread(target=self.accept_connections, daemon=False).start()
+        flag = self.connect_tracker()
+        if(flag):
+            self.register_with_tracker()
+            
+            # socket to connect other peer
+            self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.server_socket.bind((self.my_ip, self.my_port))
+            self.server_socket.listen(MAX_LISTEN)
+            
+            # while True:   
+            #     client_socket, addr = self.server_socket.accept()
+            threading.Thread(target=self.accept_connections, daemon=False).start()
+
+    def get_tracker_host(self):
+        return self.tracker_host
+    
+    def get_tracker_port(self):
+        return self.tracker_port
+    
+    def get_my_ip(self):
+        return self.my_ip
+    
+    def get_my_port(self):
+        return self.my_port
+    
+    def get_files(self):
+        return self.files
+
+    def connect_tracker(self):
+        try:
+            self.client_to_tracker = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.client_to_tracker.connect((self.tracker_host, self.tracker_port))
+            return True
+        except:
+            return False
 
     def register_with_tracker(self):
         message = json.dumps({
@@ -219,135 +242,142 @@ class Peer:
         finally:
             client_socket.close()
 
+    def sen_process(self, data):
+        print(data)
+        cmd = data[0]
+        if cmd == "HELP":
+            self.client_to_tracker.send(cmd.encode(FORMAT))
+        elif cmd == "LOGOUT":
+            print("Disconnected from the server.")
+            self.client_to_tracker.send(cmd.encode(FORMAT))
+            return
+        elif cmd == "LIST":
+            message = json.dumps({'command': 'LIST'})
+            
+            self.client_to_tracker.send(message.encode())
+            
+            response = self.client_to_tracker.recv(1024).decode()
+            
+            peer_list = json.loads(response)
+            
+            print(peer_list)
+        elif cmd == "UPLOAD":
+            file_paths = data[1]
+
+            file_paths = file_paths.split(",")
+
+            metainfo = []
+            files = []
+            invalid = False
+            
+            for file_path in file_paths:
+                # Check if the input path is a file or a directory
+                if os.path.isdir(file_path):
+                    # Multiple-file mode
+                    
+                    sizes = []
+                    pieces = []
+                    
+                    for root, _, filenames in os.walk(file_path):
+                        print(root)
+                        print(filenames)
+                        for filename in filenames:
+                            file_abs_path = os.path.join(root, filename)
+                            file_rel_path = os.path.relpath(file_abs_path, file_path)
+                            
+                            file_size = os.path.getsize(file_abs_path)
+                            files.append(file_rel_path)
+                            sizes.append(file_size)
+
+                            self.files.append(file_abs_path)
+
+                            pieces.append(math.ceil(file_size/PIECE_SIZE))
+                    
+                    metainfo.append({
+                        'name': file_path,
+                        'is_folder': True,
+                        'files': files,
+                        'sizes': sizes,
+                        'num_pieces': pieces
+                    })
+                
+                elif os.path.isfile(file_path):
+                    size = os.path.getsize(file_path)
+                    files.append(('', size))
+
+                    self.files.append(file_path)
+
+                    num_piece = math.ceil(size/PIECE_SIZE)
+                    
+                    metainfo.append({
+                        'name': '',
+                        'is_folder': False,
+                        'files': file_path,
+                        'sizes': size,
+                        'num_pieces': num_piece
+                    })
+
+                else:
+                    invalid = True
+                    print("Invalid input path.")
+                    return
+
+                print(files)
+                files = []
+
+            if(invalid):
+                return
+            
+            print(metainfo)
+
+            message = json.dumps({'command': 'UPLOAD', 'metainfo': metainfo}).encode()
+            print(message)
+            self.client_to_tracker.send(message)
+
+            response = self.client_to_tracker.recv(1024).decode()
+            print(response)
+            
+        elif cmd == "DOWNLOAD":
+            filename = data[1]
+
+            # peerIp = data[2]
+            # peerport = data[3]
+
+            filename = filename.split(",")
+            temp_list = []
+
+            for file in filename:
+                if(file[-1:] == "\\"):
+                    if(os.path.exists(file) == False):
+                        os.mkdir(file)
+                    peer_req = self.request_peerS_info(file)
+                    print(peer_req)
+                    for p in peer_req['peers']:
+                        temp_list.append(p['file'])
+                    filename.remove(file)
+
+            for f in temp_list:
+                filename.append(f)                        
+
+            print(filename)
+
+            self.manage_downloads(filename)
+        else:
+            print("pass")
+            # self.client_to_tracker.send("pass".encode())
+
+        
+
     def sen(self):
         while True:
             data = input("> ")
             data = data.split(" ")
-            cmd = data[0]
 
-            if cmd == "HELP":
-                self.client_to_tracker.send(cmd.encode(FORMAT))
-            elif cmd == "LOGOUT":
-                self.client_to_tracker.send(cmd.encode(FORMAT))
-                break
-            elif cmd == "LIST":
-                message = json.dumps({'command': 'LIST'})
-                
-                self.client_to_tracker.send(message.encode())
-                
-                response = self.client_to_tracker.recv(1024).decode()
-                
-                peer_list = json.loads(response)
-                
-                print(peer_list)
-            elif cmd == "UPLOAD":
-                file_paths = data[1]
+            thrSen = threading.Thread(target=self.sen_process, args=(data,))
+            thrSen.start()
+            # print("endloop")
 
-                file_paths = file_paths.split(",")
-
-                metainfo = []
-                files = []
-                invalid = False
-                
-                for file_path in file_paths:
-                    # Check if the input path is a file or a directory
-                    if os.path.isdir(file_path):
-                        # Multiple-file mode
-                        
-                        sizes = []
-                        pieces = []
-                        
-                        for root, _, filenames in os.walk(file_path):
-                            print(root)
-                            print(filenames)
-                            for filename in filenames:
-                                file_abs_path = os.path.join(root, filename)
-                                file_rel_path = os.path.relpath(file_abs_path, file_path)
-                                
-                                file_size = os.path.getsize(file_abs_path)
-                                files.append(file_rel_path)
-                                sizes.append(file_size)
-
-                                self.files.append(file_abs_path)
-
-                                pieces.append(math.ceil(file_size/PIECE_SIZE))
-                        
-                        metainfo.append({
-                            'name': file_path,
-                            'is_folder': True,
-                            'files': files,
-                            'sizes': sizes,
-                            'num_pieces': pieces
-                        })
-                    
-                    elif os.path.isfile(file_path):
-                        size = os.path.getsize(file_path)
-                        files.append(('', size))
-
-                        self.files.append(file_path)
-
-                        num_piece = math.ceil(size/PIECE_SIZE)
-                        
-                        metainfo.append({
-                            'name': '',
-                            'is_folder': False,
-                            'files': file_path,
-                            'sizes': size,
-                            'num_pieces': num_piece
-                        })
-
-                    else:
-                        invalid = True
-                        print("Invalid input path.")
-                        continue
-
-                    print(files)
-                    files = []
-
-                if(invalid):
-                    continue
-                
-                print(metainfo)
-
-                message = json.dumps({'command': 'UPLOAD', 'metainfo': metainfo}).encode()
-                print(message)
-                self.client_to_tracker.send(message)
-
-                response = self.client_to_tracker.recv(1024).decode()
-                print(response)
-                
-            elif cmd == "DOWNLOAD":
-                filename = data[1]
-
-                # peerIp = data[2]
-                # peerport = data[3]
-
-                filename = filename.split(",")
-                temp_list = []
-
-                for file in filename:
-                    if(file[-1:] == "\\"):
-                        if(os.path.exists(file) == False):
-                            os.mkdir(file)
-                        peer_req = self.request_peerS_info(file)
-                        print(peer_req)
-                        for p in peer_req['peers']:
-                            temp_list.append(p['file'])
-                        filename.remove(file)
-
-                for f in temp_list:
-                    filename.append(f)                        
-
-                print(filename)
-
-                self.manage_downloads(filename)
-            else:
-                print("pass")
-                # self.client_to_tracker.send("pass".encode())
-
-            print("endloop")
-
-        print("Disconnected from the server.")
+            
     
     def download_file(self, file_name, part_data):
         peer_info = self.request_peerS_info(file_name)

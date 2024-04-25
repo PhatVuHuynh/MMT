@@ -3,7 +3,7 @@ import threading, os
 import json
 import math
 
-TRACKER_IP = '192.168.1.1'
+TRACKER_IP = '192.168.1.166'
 TRACKER_PORT = 9999
 
 class Tracker:
@@ -20,6 +20,15 @@ class Tracker:
         while True:
             client_socket, addr = self.server_socket.accept()
             threading.Thread(target=self.handle_client, args=(client_socket, addr)).start()
+
+    def get_host(self):
+        return self.host
+    
+    def get_port(self):
+        return self.port
+    
+    def get_peers(self):
+        return self.peers
 
     def handle_client(self, client_socket, addr):
         try:
@@ -59,8 +68,8 @@ class Tracker:
                                 print(file)
                                 # a="a\\sda"
                                 # a.startswith()
-                                print(file.startswith('a\\'))
-                                if file.startswith('a\\') :
+                                print(file.startswith(filename))
+                                if file.startswith(filename) :
                                     available_peers.append(
                                     {
                                         'ip': peer_info['ip'],
