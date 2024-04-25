@@ -3,8 +3,9 @@ import threading, os
 import json
 import math
 
-TRACKER_IP = '192.168.1.166'
+TRACKER_IP = socket.gethostbyname(socket.gethostname())
 TRACKER_PORT = 9999
+PIECE_SIZE = 2 ** 20
 
 class Tracker:
     def __init__(self, host=TRACKER_IP, port=TRACKER_PORT):
@@ -34,7 +35,14 @@ class Tracker:
         try:
             while True:
                 # print(addr)
-                data = client_socket.recv(1024)
+                try:
+                    data = client_socket.recv(PIECE_SIZE)
+                except:
+                    print(self.peers)
+                    self.peers.pop(addr)
+                    print(self.peers)
+                    return
+                
                 print(data)
                 if not data:
                     break
@@ -45,7 +53,7 @@ class Tracker:
 
                     pieces = []
                     for size in data['sizes']:
-                        temp = math.ceil(size/1024)
+                        temp = math.ceil(size/PIECE_SIZE)
                         pieces.append(temp)
 
                     self.peers[addr] = {
@@ -54,6 +62,7 @@ class Tracker:
                         'ip': data['ip'],
                         'port': data['port'],
                         'sizes': data['sizes'],
+                        'hashes': data['hashes'],
                         'pieces': pieces
                     }
                     print(f"Registered {addr} with files: {data['files']}, IP: {data['ip']}, Port: {data['port']}")
@@ -75,6 +84,7 @@ class Tracker:
                                         'ip': peer_info['ip'],
                                         'port': peer_info['port'],
                                         'file': file,
+                                        'hash': peer_info['hashes'][peer_info['files'].index(file)],
                                         'size': peer_info['sizes'][peer_info['files'].index(file)],
                                         'pieces': peer_info['pieces'][peer_info['files'].index(file)]
                                     })
@@ -84,6 +94,7 @@ class Tracker:
                                 'ip': peer_info['ip'],
                                 'port': peer_info['port'],
                                 'file': filename,
+                                'hash': peer_info['hashes'][peer_info['files'].index(filename)],
                                 'size': peer_info['sizes'][peer_info['files'].index(filename)],
                                 'pieces': peer_info['pieces'][peer_info['files'].index(filename)]
                             }
@@ -93,7 +104,7 @@ class Tracker:
                     response = json.dumps({"peers": available_peers}).encode()
                     client_socket.send(response)
 
-                elif command == 'LIST':
+                elif command == 'list':
                     available_files = []
                     for peer_addr, peer_info in self.peers.items():
                         for file in peer_info['files']:
@@ -106,7 +117,7 @@ class Tracker:
                     # print("in")
                     client_socket.send(response)
 
-                elif command == 'UPLOAD':
+                elif command == 'upload':
                     try:
                         print(data['metainfo'])
                         for metainfo in data['metainfo']:
@@ -116,6 +127,7 @@ class Tracker:
                                 print(metainfo)
                                 for file in metainfo['files']:
                                     print(1)
+                                    self.peers[addr]['hashes'].append(metainfo['hashes'][metainfo['files'].index(file)])
                                     self.peers[addr]['sizes'].append(metainfo['sizes'][metainfo['files'].index(file)])
                                     print(1)
                                     self.peers[addr]['pieces'].append(metainfo['num_pieces'][metainfo['files'].index(file)])
@@ -127,6 +139,7 @@ class Tracker:
                             else:
                                 # metainfo = data['metainfo']
                                 print(metainfo)
+                                self.peers[addr]['hashes'].append(metainfo['hashes'])
                                 self.peers[addr]['sizes'].append(metainfo['sizes'])
                                 print(metainfo['sizes'])
                                 self.peers[addr]['pieces'].append(metainfo['num_pieces'])
@@ -143,27 +156,23 @@ class Tracker:
                         print(e)
                         client_socket.send("Server can't received your file.".encode())
 
-                # elif command == 'DOWNLOAD':
-                #     filename = data['file']
-                #     ip = data['ip']
-                #     port = int(data['port'])
+                elif command == 'help':
+                    response += "list: List all shared files.\n"
+                    response += "upload <filename>: Upload file(s)/folder to the server. Ex: upload a,b.txt\n"
+                    response += "DOWNLOAD <file>: Download file(s)/folder from other peer(s). Ex: download a,b.txt\n"
+                    response += "logout: Disconnect from the server.\n"
+                    response += "help: List all the commands."
+                    
+                    client_socket.send(response.encode())
 
-                #     available_peer = {}
-
-                #     for peer_addr, peer_info in self.peers.items():
-                #         if filename in peer_info['files'] and ip == peer_info['ip'] and port == peer_info['port']:
-                #             available_peer = {
-                #                 'ip': peer_info['ip'],
-                #                 'port': peer_info['port'],
-                #                 'file': filename,
-                #                 'size': peer_info['sizes'][peer_info['files'].index(filename)],
-                #                 'pieces': peer_info['pieces'][peer_info['files'].index(filename)]
-                #             }
-                        
-                #     # print(type(available_peers))
-                #     response = json.dumps(available_peer).encode()
-                #     client_socket.send(response)
-                #     pass
+                elif command == 'logout':
+                    try:
+                        self.peers.pop(addr)
+                        response = "Disconnected from the server."
+                    except:
+                        response = "There is an error while logging out."
+                    
+                    client_socket.send(response.encode())
                 else:
                     pass
         finally:

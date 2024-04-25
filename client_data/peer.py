@@ -1,12 +1,13 @@
 import socket, math
-import json
+import json, hashlib
 import threading
 import sys
 import os
 import tqdm
 
-TRACKER_IP = '192.168.1.166'
-TRACKER_PORT = 9999
+TRACKER_IP = ''
+TRACKER_PORT = None
+MY_IP = socket.gethostbyname(socket.gethostname())
 PIECE_SIZE = 2 ** 20
 FORMAT = 'utf-8'
 MAX_LISTEN = 100
@@ -15,16 +16,22 @@ class Peer:
     # init peer
     def __init__(self, tracker_host, tracker_port, my_ip, my_port, files):
         self.tracker_host = tracker_host
-        self.tracker_port = tracker_port
+        self.tracker_port = int(tracker_port)
         self.my_ip = my_ip
-        self.my_port = my_port
+        self.my_port = int(my_port)
         self.files = files
+
+        # print(MY_IP)
         
         self.part_data_lock = threading.Lock()
 
-        sizes =[]
+        sizes, hashes = [],[]
         for file in files:
             sizes.append(os.path.getsize(file))
+            part_hash = self.create_hash_file(file)
+            hashes.append(part_hash)
+        
+        self.hashes = hashes
         self.sizes = sizes
         
         # connect to tracker
@@ -59,9 +66,13 @@ class Peer:
     def connect_tracker(self):
         try:
             self.client_to_tracker = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            print(self.tracker_host)
+            print(self.tracker_port)
             self.client_to_tracker.connect((self.tracker_host, self.tracker_port))
+            print("Connect to tracker successfully.")
             return True
         except:
+            print("Can't connect to tracker")
             return False
 
     def register_with_tracker(self):
@@ -70,9 +81,36 @@ class Peer:
             'files': self.files,
             'ip': self.my_ip,
             'port': self.my_port,
-            'sizes': self.sizes
+            'sizes': self.sizes,
+            'hashes': self.hashes
         })
         self.client_to_tracker.send(message.encode())
+
+    #Tạo tổng hash của file_name
+    def create_hash_file(self, file_name):
+        hash_sum = ""
+        with open(file_name, 'rb') as file:
+            piece_offset = 0
+            piece = file.read(PIECE_SIZE)
+            while piece:
+                piece_hash = hashlib.sha256(piece).hexdigest()
+                hash_sum += piece_hash
+                piece_offset += len(piece)
+                piece = file.read(PIECE_SIZE)
+
+        return hash_sum
+    
+    def create_hash_data(self, data):
+        sum_hash = ""
+        offset = 0
+        
+        while offset < len(data):
+            piece = data[offset:offset+PIECE_SIZE]
+            piece_hash = hashlib.sha256(piece).hexdigest()
+            sum_hash += piece_hash
+            offset += PIECE_SIZE
+        
+        return sum_hash
     
 # lấy info peer từ tracker, yêu cầu kết nối và nhận file:
     # lấy info peer
@@ -243,15 +281,19 @@ class Peer:
             client_socket.close()
 
     def sen_process(self, data):
-        print(data)
-        cmd = data[0]
-        if cmd == "HELP":
+        # print(data)
+        cmd = data[0].strip().lower()
+        if cmd == "help":
             self.client_to_tracker.send(cmd.encode(FORMAT))
-        elif cmd == "LOGOUT":
-            print("Disconnected from the server.")
+            res = self.client_to_tracker.recv(PIECE_SIZE).decode()
+
+            print(res)
+        elif cmd == "logout":
+            # print("Disconnected from the server.")
             self.client_to_tracker.send(cmd.encode(FORMAT))
+            print(self.client_to_tracker.recv(PIECE_SIZE).decode())
             return
-        elif cmd == "LIST":
+        elif cmd == "list":
             message = json.dumps({'command': 'LIST'})
             
             self.client_to_tracker.send(message.encode())
@@ -261,7 +303,7 @@ class Peer:
             peer_list = json.loads(response)
             
             print(peer_list)
-        elif cmd == "UPLOAD":
+        elif cmd == "upload":
             file_paths = data[1]
 
             file_paths = file_paths.split(",")
@@ -277,6 +319,7 @@ class Peer:
                     
                     sizes = []
                     pieces = []
+                    hashes = []
                     
                     for root, _, filenames in os.walk(file_path):
                         print(root)
@@ -288,8 +331,12 @@ class Peer:
                             file_size = os.path.getsize(file_abs_path)
                             files.append(file_rel_path)
                             sizes.append(file_size)
+                            hash = self.create_hash_file(file_abs_path)
+                            hashes.append(hash)
 
                             self.files.append(file_abs_path)
+                            self.sizes.append(file_size)
+                            self.hashes.append(hash)
 
                             pieces.append(math.ceil(file_size/PIECE_SIZE))
                     
@@ -298,14 +345,18 @@ class Peer:
                         'is_folder': True,
                         'files': files,
                         'sizes': sizes,
-                        'num_pieces': pieces
+                        'num_pieces': pieces,
+                        'hashes': hashes
                     })
                 
                 elif os.path.isfile(file_path):
                     size = os.path.getsize(file_path)
                     files.append(('', size))
-
+                    hash = self.create_hash_file(file_path)
+                    
                     self.files.append(file_path)
+                    self.sizes.append(size)
+                    self.hashes.append(hash)
 
                     num_piece = math.ceil(size/PIECE_SIZE)
                     
@@ -314,7 +365,8 @@ class Peer:
                         'is_folder': False,
                         'files': file_path,
                         'sizes': size,
-                        'num_pieces': num_piece
+                        'num_pieces': num_piece,
+                        'hashes': hash
                     })
 
                 else:
@@ -337,7 +389,7 @@ class Peer:
             response = self.client_to_tracker.recv(1024).decode()
             print(response)
             
-        elif cmd == "DOWNLOAD":
+        elif cmd == "download":
             filename = data[1]
 
             # peerIp = data[2]
@@ -366,8 +418,6 @@ class Peer:
             print("pass")
             # self.client_to_tracker.send("pass".encode())
 
-        
-
     def sen(self):
         while True:
             data = input("> ")
@@ -376,18 +426,18 @@ class Peer:
             thrSen = threading.Thread(target=self.sen_process, args=(data,))
             thrSen.start()
             # print("endloop")
-
-            
     
     def download_file(self, file_name, part_data):
         peer_info = self.request_peerS_info(file_name)
         # print(peer_info)
         if peer_info:
+            size, pieces, hash = 0,0,''
             print(peer_info)
             for p in peer_info['peers']:
                 print(p['ip'], " ", p['port'], " ", p['file'], " ", p['size'], p['pieces'])
                 size = p['size']
                 pieces = p['pieces']
+                hash = p['hash']
 
             ip_list = []
             port_list = []
@@ -482,15 +532,18 @@ class Peer:
 
             data = b"".join([part[1] for part in part_data])
 
+            sum_hash = self.create_hash_data(data)
+
             # with part_data_lock:
             #     for i, result in enumerate(part_data):
             #         data += result
             
             try:
-                file = open(file_name, "wb")
-                file.write(data)
+                if sum_hash == hash:
+                    file = open(file_name, "wb")
+                    file.write(data)
 
-                file.close()
+                    file.close()
             except Exception as e:
                 print(e)
             
@@ -514,18 +567,23 @@ class Peer:
         print(f"All files have been downloaded.")
     
 if __name__ == "__main__":
-    my_ip = sys.argv[1]
-    my_port = int(sys.argv[2])
+    TRACKER_IP = input("Please enter Tracker's IP you want to connect:")
+    print(TRACKER_IP)
+    TRACKER_PORT = input("Please enter port of the Tracker above:")
+    print(TRACKER_PORT)
+    # my_ip = sys.argv[1]
+
+    my_port = input("Please enter your port number:")
     files = []
     
-    if len(sys.argv) > 3:
-        files = sys.argv[3].split(',')
+    # if len(sys.argv) > 3:
+    #     files = sys.argv[3].split(',')
 
-    peer = Peer(TRACKER_IP, TRACKER_PORT, my_ip, my_port, files)
+    peer = Peer(TRACKER_IP, TRACKER_PORT, MY_IP, my_port, files)
 
     # if the peer need to download a file
-    if len(sys.argv) > 4:
-        requested_files = sys.argv[4].split(',')
-        peer.manage_downloads(requested_files)
+    # if len(sys.argv) > 4:
+    #     requested_files = sys.argv[4].split(',')
+    #     peer.manage_downloads(requested_files)
 
     peer.sen()
