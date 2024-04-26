@@ -343,10 +343,10 @@ class Peer:
                     metainfo.append({
                         'name': file_path,
                         'is_folder': True,
-                        'files': files,
-                        'sizes': sizes,
-                        'num_pieces': pieces,
-                        'hashes': hashes
+                        'files': files, #['b.txt','temp.png']
+                        'sizes': sizes, #[23,1500]
+                        'num_pieces': pieces, #[1,2]
+                        'hashes': hashes 
                     })
                 
                 elif os.path.isfile(file_path):
