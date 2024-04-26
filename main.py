@@ -1,34 +1,76 @@
+import random
 import tkinter as tk
 from tkinter import ttk
 import threading
+import socket
+import queue
 from tkinter import messagebox
 from peer import *
 from tracker import *
 
-def validate_login():
+def get_local_ipv4():
+    try:
+        # Create a socket to get the local IP address
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))  # Connect to a public DNS server
+        local_ip = s.getsockname()[0]
+        s.close()
+        return local_ip
+    except Exception as e:
+        print(f"Error getting local IP: {e}")
+        return None
+
+def validate_login(event = None):
     # Dummy validation for demonstration
+    global url_entry
+    global port_entry
+    
     url = url_entry.get()
-    port = port_entry.get()
-    global peer
-    if peer.connect_tracker(url=url, port=port) == True:
+    try:
+        port = int(port_entry.get())
+    except ValueError:
+        messagebox.showerror("Invalid port number", "The port number must be an integer")
+        return
+    
+    tk_to_peer_q.put("CONNECT")
+    tk_to_peer_q.put((url, port,))
+    connect_result = peer_to_tk_q.get()
+    if connect_result == True:
         show_main()
     else:
         messagebox.showerror("Connect Field", "Cannot connect to the Tracker")
 
 def show_main():
-    # Populate the list with some names
-    names = ["Alice", "Bob", "Charlie", "David"]
-    for name in names:
-        names_list.insert(tk.END, name)
-
     # Switch to main window
     login_frame.place_forget()
+    
     main_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
     root.title("Main Window")
     root.geometry("800x400")
 
 def console_execute_command(event=None):
-    pass
+    global console_entry
+    command = console_entry.get().strip()
+    if command != "":
+        text_area_insert (message=command, from_user=True)
+        tk_to_peer_q.put("CONSOLE")
+        tk_to_peer_q.put(command)
+        output = peer_to_tk_q.get()
+        text_area_insert(message=output, from_user=False)
+
+        
+def text_area_insert(message:str, from_user = False):
+    global console_entry
+    global console_text_area
+    if message != "":
+        console_text_area.config(state='normal')  # Enable text area temporarily
+        if from_user:
+            console_text_area.insert(tk.END, f"> {message}\n")
+            console_entry.delete(0, tk.END)
+        else:
+            console_text_area.insert(tk.END, f"{message}\n")
+        console_text_area.config(state='disabled')  # Disable text area again
+        console_text_area.see(tk.END)
 
 def show_login():
     # Switch back to login window
@@ -38,11 +80,19 @@ def show_login():
 
 
 if __name__ == "__main__":
-    peer = Peer()
+    ipv4addr = get_local_ipv4()
+    port_number = random.randint(49152, 65535)
+    peer = Peer(my_ip=ipv4addr, my_port=port_number)
+    
+    tk_to_peer_q = queue.Queue()
+    peer_to_tk_q = queue.Queue()
+    backend_thread = threading.Thread(target=peer.run, args=(tk_to_peer_q,peer_to_tk_q,  ) )
     
     root = tk.Tk()
     root.title("Connect to Tracker")
     root.resizable(False, False)
+    root.protocol("WM_DELETE_WINDOW", lambda: [tk_to_peer_q.put(None), root.destroy()])
+
     
     root.geometry("400x200")
     login_frame = tk.Frame(root)
@@ -60,8 +110,11 @@ if __name__ == "__main__":
     port_entry.grid(row=1, column=1, padx=10, pady=5)
 
     # Login button
-    login_button = tk.Button(login_frame, text="Login", command=validate_login)
+    login_button = tk.Button(login_frame, text="Connect", command=validate_login)
     login_button.grid(row=2, columnspan=2, padx=10, pady=10)
+    url_entry.bind("<Return>", validate_login)
+    port_entry.bind("<Return>", validate_login)
+    
 
 
 
@@ -69,9 +122,9 @@ if __name__ == "__main__":
     main_frame = tk.Frame(root)
     tabs = ttk.Notebook(main_frame)
     tabs.place(relx=0, rely=0, relwidth=1, relheight=1)
-    console = Frame(tabs)   # first page, which would get widgets gridded into it
-    UI = Frame(tabs)   # second page
-    tabs.add(Console, text='Console')
+    console = tk.Frame(tabs)   # first page, which would get widgets gridded into it
+    UI = tk.Frame(tabs)   # second page
+    tabs.add(console, text='Console')
     tabs.add(UI, text='UI')
     
     
@@ -100,4 +153,5 @@ if __name__ == "__main__":
     console_send_button = tk.Button(console, text="Send", command=console_execute_command)
     console_send_button.grid(row=1, column=1, sticky='ew', padx=(0, 10))
         
+    backend_thread.start()
     root.mainloop()
