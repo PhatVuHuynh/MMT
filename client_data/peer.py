@@ -1,6 +1,6 @@
 import socket, math
 import json, hashlib
-import threading
+import threading, queue
 import sys
 import os
 import tqdm
@@ -20,6 +20,7 @@ class Peer:
         self.my_ip = my_ip
         self.my_port = int(my_port)
         self.files = files
+        
 
         # print(MY_IP)
         
@@ -131,23 +132,6 @@ class Peer:
         except json.JSONDecodeError:
             print("Failed to decode JSON from response")
             return None
-
-    # def request_peer_info(self, filename, ip, port):
-    #     message = json.dumps({'command': 'DOWNLOAD', 
-    #                                   'file': filename,
-    #                                   'ip': ip,
-    #                                   'port': port
-    #                                 }).encode()
-    #     self.client_to_tracker.send(message)
-    #     response = self.client_to_tracker.recv(PIECE_SIZE)
-    #     if not response:
-    #         print(f"No data received from {ip}, {port}")
-    #         return None
-    #     try:
-    #         return json.loads(response.decode())
-    #     except json.JSONDecodeError:
-    #         print("Failed to decode JSON from response")
-    #         return None
 
     # receive file (dữ liệu nhận ghi vào filename)
     def download_piece(self, ip_sender, port_sender, filename, start, end, part_data):
@@ -280,18 +264,32 @@ class Peer:
         finally:
             client_socket.close()
 
-    def sen_process(self, data):
+    def sen_process(self, data, q):
         # print(data)
+        global_response = ""
+        data = data.split(" ")
         cmd = data[0].strip().lower()
         if cmd == "help":
-            self.client_to_tracker.send(cmd.encode(FORMAT))
+            message = json.dumps({'command': 'help'})
+            
+            self.client_to_tracker.send(message.encode())
+            
             res = self.client_to_tracker.recv(PIECE_SIZE).decode()
 
-            print(res)
+            # print(res)
+            # self.response = res
+            global_response = res
         elif cmd == "logout":
             # print("Disconnected from the server.")
-            self.client_to_tracker.send(cmd.encode(FORMAT))
-            print(self.client_to_tracker.recv(PIECE_SIZE).decode())
+            message = json.dumps({'command': 'logout'})
+            
+            self.client_to_tracker.send(message.encode())
+            
+            res = self.client_to_tracker.recv(PIECE_SIZE).decode()
+
+            # print(res)
+            # self.response = res
+            global_response = res
             return
         elif cmd == "list":
             message = json.dumps({'command': 'list'})
@@ -302,7 +300,9 @@ class Peer:
             
             peer_list = json.loads(response)
             
-            print(peer_list)
+            # self.response = peer_list
+            global_response = peer_list
+            # print(peer_list)
         elif cmd == "upload":
             file_paths = data[1]
 
@@ -370,15 +370,15 @@ class Peer:
                     })
 
                 else:
-                    invalid = True
+                    # invalid = True
                     print("Invalid input path.")
                     return
 
                 print(files)
                 files = []
 
-            if(invalid):
-                return
+            # if(invalid):
+            #     return
             
             print(metainfo)
 
@@ -387,7 +387,8 @@ class Peer:
             self.client_to_tracker.send(message)
 
             response = self.client_to_tracker.recv(1024).decode()
-            print(response)
+            # self.response = response
+            global_response = response
             
         elif cmd == "download":
             filename = data[1]
@@ -414,18 +415,24 @@ class Peer:
             print(filename)
 
             self.manage_downloads(filename)
+            # self.response = ""
+            global_response = ""
         else:
-            print("pass")
+            # self.response = "pass"
+            global_response = "pass"
             # self.client_to_tracker.send("pass".encode())
+        q.put(global_response)
 
     def sen(self):
         while True:
             data = input("> ")
-            data = data.split(" ")
-
-            thrSen = threading.Thread(target=self.sen_process, args=(data,))
+            # data = data.split(" ")
+            q = queue.Queue()
+            thrSen = threading.Thread(target=self.sen_process, args=(data, q))
             thrSen.start()
             # print("endloop")
+            # print(self.response)
+            print(q.get())
     
     def download_file(self, file_name, part_data):
         peer_info = self.request_peerS_info(file_name)
