@@ -294,7 +294,7 @@ class Peer:
             print(self.client_to_tracker.recv(PIECE_SIZE).decode())
             return
         elif cmd == "list":
-            message = json.dumps({'command': 'LIST'})
+            message = json.dumps({'command': 'list'})
             
             self.client_to_tracker.send(message.encode())
             
@@ -382,7 +382,7 @@ class Peer:
             
             print(metainfo)
 
-            message = json.dumps({'command': 'UPLOAD', 'metainfo': metainfo}).encode()
+            message = json.dumps({'command': 'upload', 'metainfo': metainfo}).encode()
             print(message)
             self.client_to_tracker.send(message)
 

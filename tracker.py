@@ -157,9 +157,10 @@ class Tracker:
                         client_socket.send("Server can't received your file.".encode())
 
                 elif command == 'help':
+                    response = ""
                     response += "list: List all shared files.\n"
                     response += "upload <filename>: Upload file(s)/folder to the server. Ex: upload a,b.txt\n"
-                    response += "DOWNLOAD <file>: Download file(s)/folder from other peer(s). Ex: download a,b.txt\n"
+                    response += "download <file>: Download file(s)/folder from other peer(s). Ex: download a,b.txt\n"
                     response += "logout: Disconnect from the server.\n"
                     response += "help: List all the commands."
                     
