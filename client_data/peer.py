@@ -294,7 +294,7 @@ class Peer:
             print(self.client_to_tracker.recv(PIECE_SIZE).decode())
             return
         elif cmd == "list":
-            message = json.dumps({'command': 'LIST'})
+            message = json.dumps({'command': 'list'})
             
             self.client_to_tracker.send(message.encode())
             
@@ -343,10 +343,10 @@ class Peer:
                     metainfo.append({
                         'name': file_path,
                         'is_folder': True,
-                        'files': files,
-                        'sizes': sizes,
-                        'num_pieces': pieces,
-                        'hashes': hashes
+                        'files': files, #['b.txt','temp.png']
+                        'sizes': sizes, #[23,1500]
+                        'num_pieces': pieces, #[1,2]
+                        'hashes': hashes 
                     })
                 
                 elif os.path.isfile(file_path):
@@ -382,7 +382,7 @@ class Peer:
             
             print(metainfo)
 
-            message = json.dumps({'command': 'UPLOAD', 'metainfo': metainfo}).encode()
+            message = json.dumps({'command': 'upload', 'metainfo': metainfo}).encode()
             print(message)
             self.client_to_tracker.send(message)
 
