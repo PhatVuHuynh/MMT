@@ -40,13 +40,7 @@ def validate_login(event = None):
     else:
         messagebox.showerror("Connect Field", "Cannot connect to the Tracker")
 
-def show_main():
-    # Switch to main window
-    login_frame.place_forget()
-    
-    main_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
-    root.title("Main Window")
-    root.geometry("800x400")
+
 
 def console_execute_command(event=None):
     global console_entry
@@ -56,6 +50,7 @@ def console_execute_command(event=None):
         tk_to_peer_q.put("CONSOLE")
         tk_to_peer_q.put(command)
         output = peer_to_tk_q.get()
+        print ("ABC")
         text_area_insert(message=output, from_user=False)
 
         
@@ -71,7 +66,15 @@ def text_area_insert(message:str, from_user = False):
             console_text_area.insert(tk.END, f"{message}\n")
         console_text_area.config(state='disabled')  # Disable text area again
         console_text_area.see(tk.END)
-
+        
+def show_main():
+    # Switch to main window
+    login_frame.place_forget()
+    
+    main_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
+    root.title("Main Window")
+    root.geometry("800x400")
+    
 def show_login():
     # Switch back to login window
     main_frame.place_forget()

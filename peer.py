@@ -18,7 +18,11 @@ class Peer:
     # init peer
     def __init__(self,  my_ip, my_port, files = None, tracker_host = None, tracker_port = None):
         self.tracker_host = tracker_host
-        self.tracker_port = tracker_port
+        try: 
+            self.tracker_port = int(tracker_port)
+        except ValueError:
+            print ("Tracker port is not an integer")
+            exit()
         self.my_ip = my_ip
         self.my_port = int(my_port)
         
@@ -287,6 +291,7 @@ class Peer:
 
     def sen_process(self, data) -> str:
         # print(data)
+        data = data.split(" ")
         cmd = data[0].strip().lower()
         if cmd == "help":
             self.client_to_tracker.send(cmd.encode(FORMAT))
@@ -304,7 +309,6 @@ class Peer:
             self.client_to_tracker.send(message.encode())
             
             response = self.client_to_tracker.recv(1024).decode()
-            
             peer_list = json.loads(response)
             
             print(peer_list)
@@ -408,7 +412,7 @@ class Peer:
                     if(os.path.exists(file) == False):
                         os.mkdir(file)
                     peer_req = self.request_peerS_info(file)
-                    print(peer_req)
+                    print(peer_req) #in cac peer chua no
                     for p in peer_req['peers']:
                         temp_list.append(p['file'])
                     filename.remove(file)
@@ -426,13 +430,13 @@ class Peer:
     def sen(self):
         while True:
             data = input("> ")
-            data = data.split(" ")
+            # data = data.split(" ")
 
             thrSen = threading.Thread(target=self.sen_process, args=(data,))
             thrSen.start()
             # print("endloop")
             
-    def run(self, tk_to_peer_q:queue.Queue,peer_to_tk_q:queue.Queue) -> None: #similar to send, wait for a command
+    def run(self, tk_to_peer_q:queue.Queue, peer_to_tk_q:queue.Queue) -> None: #similar to send, wait for a command
         while True:
             message = tk_to_peer_q.get() #block here
             if message is None:  # None is our signal to exit the thread
@@ -593,7 +597,7 @@ if __name__ == "__main__":
     # if len(sys.argv) > 3:
     #     files = sys.argv[3].split(',')
 
-    peer = Peer(TRACKER_IP, TRACKER_PORT, MY_IP, my_port, files)
+    peer = Peer(MY_IP, my_port, tracker_host=TRACKER_IP, tracker_port=TRACKER_PORT)
 
     # if the peer need to download a file
     # if len(sys.argv) > 4:
