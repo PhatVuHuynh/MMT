@@ -18,11 +18,7 @@ class Peer:
     # init peer
     def __init__(self,  my_ip, my_port, files = None, tracker_host = None, tracker_port = None):
         self.tracker_host = tracker_host
-        try: 
-            self.tracker_port = int(tracker_port)
-        except ValueError:
-            print ("Tracker port is not an integer")
-            exit()
+        self.tracker_port = tracker_port
         self.my_ip = my_ip
         self.my_port = int(my_port)
         
@@ -44,6 +40,11 @@ class Peer:
         
         # connect to tracker
         if (tracker_host is not None) and (tracker_port is not None):
+            try: 
+                self.tracker_port = int(tracker_port)
+            except ValueError:
+                print ("Tracker port is not an integer")
+                exit()
             flag = self.connect_tracker(tracker_host=self.tracker_host, tracker_port=self.tracker_port)
             if(flag):
                 self.register_with_tracker()
@@ -439,12 +440,34 @@ class Peer:
     def run(self, tk_to_peer_q:queue.Queue, peer_to_tk_q:queue.Queue) -> None: #similar to send, wait for a command
         while True:
             message = tk_to_peer_q.get() #block here
+            print (message)
             if message is None:  # None is our signal to exit the thread
                 break
             elif message == "CONSOLE":
                 message = tk_to_peer_q.get() #block here
-                 
-            
+                # print (message)
+                print ("XYZ")
+                response = self.sen_process (data=message)
+                # print (response)
+                peer_to_tk_q.put(response)
+            elif message == "CONNECT":
+                tracker_host, tracker_port = tk_to_peer_q.get()
+                result = self.connect_tracker(tracker_host=tracker_host, tracker_port=tracker_port)
+                if(result):
+                    self.register_with_tracker()
+                    
+                    # socket to connect other peer
+                    self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    self.server_socket.bind((self.my_ip, self.my_port))
+                    self.server_socket.listen(MAX_LISTEN)
+                    
+                    # while True:   
+                    #     client_socket, addr = self.server_socket.accept()
+                    threading.Thread(target=self.accept_connections, daemon=False).start() #TODO: Terminate this thread
+
+                peer_to_tk_q.put(result)
+            else:
+                pass
     def download_file(self, file_name, part_data):
         peer_info = self.request_peerS_info(file_name)
         # print(peer_info)
