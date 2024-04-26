@@ -4,6 +4,8 @@ import threading
 import sys
 import os
 import tqdm
+import queue
+
 
 TRACKER_IP = ''
 TRACKER_PORT = None
@@ -14,19 +16,21 @@ MAX_LISTEN = 100
 
 class Peer:
     # init peer
-    def __init__(self, tracker_host, tracker_port, my_ip, my_port, files):
+    def __init__(self,  my_ip, my_port, files = None, tracker_host = None, tracker_port = None):
         self.tracker_host = tracker_host
-        self.tracker_port = int(tracker_port)
+        self.tracker_port = tracker_port
         self.my_ip = my_ip
         self.my_port = int(my_port)
-        self.files = files
-
-        # print(MY_IP)
         
+        if files is None:
+            self.files = []
+        else:
+            self.files = file
+
         self.part_data_lock = threading.Lock()
 
         sizes, hashes = [],[]
-        for file in files:
+        for file in self.files:
             sizes.append(os.path.getsize(file))
             part_hash = self.create_hash_file(file)
             hashes.append(part_hash)
@@ -35,18 +39,19 @@ class Peer:
         self.sizes = sizes
         
         # connect to tracker
-        flag = self.connect_tracker()
-        if(flag):
-            self.register_with_tracker()
-            
-            # socket to connect other peer
-            self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.server_socket.bind((self.my_ip, self.my_port))
-            self.server_socket.listen(MAX_LISTEN)
-            
-            # while True:   
-            #     client_socket, addr = self.server_socket.accept()
-            threading.Thread(target=self.accept_connections, daemon=False).start()
+        if (tracker_host is not None) and (tracker_port is not None):
+            flag = self.connect_tracker(tracker_host=self.tracker_host, tracker_port=self.tracker_port)
+            if(flag):
+                self.register_with_tracker()
+                
+                # socket to connect other peer
+                self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.server_socket.bind((self.my_ip, self.my_port))
+                self.server_socket.listen(MAX_LISTEN)
+                
+                # while True:   
+                #     client_socket, addr = self.server_socket.accept()
+                threading.Thread(target=self.accept_connections, daemon=False).start()
 
     def get_tracker_host(self):
         return self.tracker_host
@@ -63,12 +68,12 @@ class Peer:
     def get_files(self):
         return self.files
 
-    def connect_tracker(self):
+    def connect_tracker(self, tracker_host, tracker_port ):
         try:
             self.client_to_tracker = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            print(self.tracker_host)
-            print(self.tracker_port)
-            self.client_to_tracker.connect((self.tracker_host, self.tracker_port))
+            print(tracker_host)
+            print(tracker_port)
+            self.client_to_tracker.connect((tracker_host, tracker_port))
             print("Connect to tracker successfully.")
             return True
         except:
@@ -280,7 +285,7 @@ class Peer:
         finally:
             client_socket.close()
 
-    def sen_process(self, data):
+    def sen_process(self, data) -> str:
         # print(data)
         cmd = data[0].strip().lower()
         if cmd == "help":
@@ -426,7 +431,16 @@ class Peer:
             thrSen = threading.Thread(target=self.sen_process, args=(data,))
             thrSen.start()
             # print("endloop")
-    
+            
+    def run(self, tk_to_peer_q:queue.Queue,peer_to_tk_q:queue.Queue) -> None: #similar to send, wait for a command
+        while True:
+            message = tk_to_peer_q.get() #block here
+            if message is None:  # None is our signal to exit the thread
+                break
+            elif message == "CONSOLE":
+                message = tk_to_peer_q.get() #block here
+                 
+            
     def download_file(self, file_name, part_data):
         peer_info = self.request_peerS_info(file_name)
         # print(peer_info)
