@@ -7,7 +7,53 @@ import queue
 from tkinter import messagebox
 from peer import *
 from tracker import *
+from tkinter import filedialog
 
+#TODO: SEPERATE LOGIN WINDOW AND MAIN
+def timer_trigger():
+    root.after(10, timer_trigger)
+    timer_event()
+
+def timer_event():
+    pass
+    #put function here to force it run each 10 ms
+
+def upload_folder(): #TODO
+    folder_path = filedialog.askdirectory()
+    if folder_path:
+        tk_to_peer_q.put("UPLOAD")
+        tk_to_peer_q.put(f"upload {folder_path}")
+def upload_file(): #TODO
+    folder_path = filedialog.askopenfilename()
+    print(folder_path)
+    if folder_path:
+        tk_to_peer_q.put("UPLOAD")
+        tk_to_peer_q.put(f"upload {folder_path}")
+
+def update_list():
+    pass
+    tk_to_peer_q.put("GET LIST")
+    file_list = peer_to_tk_q.get()
+    
+    # Create a dictionary to hold the tree structure
+    tree_structure = {}
+    print(file_list)
+    for item in file_list:
+        parts = item.split('\\')
+        node = tree_structure
+        
+        for part in parts:
+            node = node.setdefault(part, {})
+
+    # Function to populate the tree view
+    def populate_tree(tree, parent, dictionary):
+        for key, value in dictionary.file_list():
+            child = tree.insert(parent, 'end', text=key)
+            if value:
+                populate_tree(tree, child, value)
+    # Populate the Treeview with data
+    populate_tree(tree, '', tree_structure)
+    
 def get_local_ipv4():
     try:
         # Create a socket to get the local IP address
@@ -66,7 +112,18 @@ def text_area_insert(message:str, from_user = False):
             console_text_area.insert(tk.END, f"{message}\n")
         console_text_area.config(state='disabled')  # Disable text area again
         console_text_area.see(tk.END)
-        
+
+def on_right_click(event):
+    item = tree.identify_row(event.y)
+    if item:
+        # Create a context menu
+        context_menu = tk.Menu(root, tearoff=0)
+        context_menu.add_command(label="Open", command=lambda: print(f"Open {item}"))
+        context_menu.add_command(label="Delete", command=lambda: print(f"Delete {item}"))
+
+        # Show the context menu at the mouse position
+        context_menu.post(event.x_root, event.y_root)
+
 def show_main():
     # Switch to main window
     login_frame.place_forget()
@@ -83,7 +140,7 @@ def show_login():
 
 
 if __name__ == "__main__":
-    ipv4addr = get_local_ipv4()
+    ipv4addr = socket.gethostbyname(socket.gethostname())
     port_number = random.randint(49152, 65535)
     peer = Peer(my_ip=ipv4addr, my_port=port_number)
     
@@ -126,9 +183,9 @@ if __name__ == "__main__":
     tabs = ttk.Notebook(main_frame)
     tabs.place(relx=0, rely=0, relwidth=1, relheight=1)
     console = tk.Frame(tabs)   # first page, which would get widgets gridded into it
-    UI = tk.Frame(tabs)   # second page
+    treeview = tk.Frame(tabs)   # second page
     tabs.add(console, text='Console')
-    tabs.add(UI, text='UI')
+    tabs.add(treeview, text='UI')
     
     
     #The console tab
@@ -156,5 +213,60 @@ if __name__ == "__main__":
     console_send_button = tk.Button(console, text="Send", command=console_execute_command)
     console_send_button.grid(row=1, column=1, sticky='ew', padx=(0, 10))
         
+        
+    #config the tabs
+    tree = ttk.Treeview(treeview)
+    # tree['columns'] = ('Size', 'Type', 'Status')  # Add a new column for status
+    tree['columns'] = ('Status',)
+    tree.column('#0', width=270, minwidth=270, stretch=tk.NO)
+    # tree.column('Size', width=150, minwidth=150, stretch=tk.NO)
+    # tree.column('Type', width=150, minwidth=150, stretch=tk.NO)
+    tree.column('Status', width=100, minwidth=100, stretch=tk.NO)  # Adjust the width as needed
+
+    tree.heading('#0', text='Name', anchor=tk.W)
+    # tree.heading('Size', text='Size', anchor=tk.W)
+    # tree.heading('Type', text='Type', anchor=tk.W)
+    tree.heading('Status', text='Status', anchor=tk.W)  # Add a heading for the new column
+
+    # folder1 = tree.insert('', 'end', text='Folder 1', values=('10 KB', 'Folder', 'Downloading'))
+    # sub_item1 = tree.insert(folder1, 'end', text='File 1', values=('2 KB', 'Text File', 'Completed'))
+    # sub_item2 = tree.insert(folder1, 'end', text='File 2', values=('3 KB', 'Image File', 'In Progress'))
+
+    # folder2 = tree.insert('', 'end', text='Folder 2', values=('20 KB', 'Folder', 'Paused'))
+    # sub_item3 = tree.insert(folder2, 'end', text='File 3', values=('5 KB', 'PDF File', 'Queued'))
+
+    # Bind right-click to on_right_click function
+    tree.bind("<Button-3>", on_right_click)
+
+    tree.pack(fill="both", expand=True)
+    
+    
+    #add menubar
+    # Create a 'File' menu
+    menu_bar = tk.Menu(main_frame)
+
+    file_menu = tk.Menu(menu_bar, tearoff=0)
+    file_menu.add_command(label="Upload file", command=upload_file)
+    file_menu.add_command(label="Upload folder", command=upload_folder)
+    file_menu.add_command(label="Update list", command=update_list)
+    # file_menu.add_separator()
+    menu_bar.add_cascade(label="File", menu=file_menu)
+
+    # Create an 'Options' menu
+    options_menu = tk.Menu(menu_bar, tearoff=0)
+    options_menu.add_command(label="Settings")
+    menu_bar.add_cascade(label="Options", menu=options_menu)
+
+    # Create a 'Help' menu
+    help_menu = tk.Menu(menu_bar, tearoff=0)
+    help_menu.add_command(label="About")
+    menu_bar.add_cascade(label="Help", menu=help_menu)
+
+    # Place the menu bar at the top of the window
+    root.config(menu=menu_bar)
+    
+    #create timer
+    root.after(10, timer_trigger)
+    
     backend_thread.start()
     root.mainloop()

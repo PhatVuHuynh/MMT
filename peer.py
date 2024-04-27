@@ -443,13 +443,7 @@ class Peer:
             print (message)
             if message is None:  # None is our signal to exit the thread
                 break
-            elif message == "CONSOLE":
-                message = tk_to_peer_q.get() #block here
-                # print (message)
-                print ("XYZ")
-                response = self.sen_process (data=message)
-                # print (response)
-                peer_to_tk_q.put(response)
+            
             elif message == "CONNECT":
                 tracker_host, tracker_port = tk_to_peer_q.get()
                 result = self.connect_tracker(tracker_host=tracker_host, tracker_port=tracker_port)
@@ -466,6 +460,16 @@ class Peer:
                     threading.Thread(target=self.accept_connections, daemon=False).start() #TODO: Terminate this thread
 
                 peer_to_tk_q.put(result)
+            elif message == "CONSOLE":
+                message = tk_to_peer_q.get() #block here
+                response = self.sen_process (data=message)
+                peer_to_tk_q.put(response)
+            elif message == "GET LIST":
+                response = self.sen_process (data="list")
+                peer_to_tk_q.put(response)
+            elif message == "UPLOAD":
+                message = tk_to_peer_q.get()
+                self.sen_process (data=message)
             else:
                 pass
     def download_file(self, file_name, part_data):
