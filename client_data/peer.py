@@ -455,8 +455,17 @@ class Peer:
     def sen_process(self, data, q):
         # print(data)
         global_response = ""
-        data = data.split(" ")
-        cmd = data[0].strip().lower()
+        # data = data.split(" ")
+        cmd_id = data.find(" ")
+
+        if(cmd_id < 0):
+            cmd = data
+        else:
+            cmd = data[:cmd_id].strip().lower()
+        
+        remain_data = data[cmd_id + 1:]
+        print(cmd)
+        print(remain_data)
         if cmd == "help":
             message = json.dumps({'command': 'help'})
             
@@ -494,7 +503,7 @@ class Peer:
             global_response = peer_list
             # print(peer_list)
         elif cmd == "upload":
-            file_paths = data[1]
+            file_paths = remain_data
 
             metainfo = self.create_metainfo(file_paths)
             
@@ -509,7 +518,7 @@ class Peer:
             global_response = response
             
         elif cmd == "download":
-            filename = data[1]
+            filename = remain_data
 
             # peerIp = data[2]
             # peerport = data[3]
