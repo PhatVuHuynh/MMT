@@ -20,21 +20,25 @@ def timer_event():
 
 def upload_folder(): #TODO
     folder_path = filedialog.askdirectory()
+    print (f"upload {folder_path}")
     if folder_path:
         tk_to_peer_q.put("UPLOAD")
         tk_to_peer_q.put(f"upload {folder_path}")
+        root.after(100, update_list)
 def upload_file(): #TODO
     folder_path = filedialog.askopenfilename()
-    print(folder_path)
+    # print(folder_path)
     if folder_path:
         tk_to_peer_q.put("UPLOAD")
         tk_to_peer_q.put(f"upload {folder_path}")
+        root.after(100, update_list)
 
 def update_list():
-    pass
+    
     tk_to_peer_q.put("GET LIST")
     file_list = peer_to_tk_q.get()
-    
+    for item in tree.get_children():
+        tree.delete(item)
     # Create a dictionary to hold the tree structure
     tree_structure = {}
     print(file_list)
@@ -47,13 +51,19 @@ def update_list():
 
     # Function to populate the tree view
     def populate_tree(tree, parent, dictionary):
-        for key, value in dictionary.file_list():
+        for key, value in dictionary.items():
             child = tree.insert(parent, 'end', text=key)
             if value:
                 populate_tree(tree, child, value)
     # Populate the Treeview with data
     populate_tree(tree, '', tree_structure)
     
+def download_file(path:str):
+    tk_to_peer_q.put("DOWNLOAD")
+    command = "download " + path
+    tk_to_peer_q.put(command)
+
+
 def get_local_ipv4():
     try:
         # Create a socket to get the local IP address
@@ -113,16 +123,37 @@ def text_area_insert(message:str, from_user = False):
         console_text_area.config(state='disabled')  # Disable text area again
         console_text_area.see(tk.END)
 
+import tkinter as tk
+from tkinter import ttk, Menu
+
 def on_right_click(event):
-    item = tree.identify_row(event.y)
-    if item:
+    # Identify the clicked item
+    item_id = tree.identify_row(event.y)
+    if item_id:
+        # Get the item's text
+        item_text = tree.item(item_id, 'text')
+        # Initialize the path with the item's text
+        path = item_text
+        # Walk up the tree to build the full path
+        parent_id = tree.parent(item_id)
+        while parent_id:
+            parent_text = tree.item(parent_id, 'text')
+            path = parent_text + '\\' + path
+            parent_id = tree.parent(parent_id)
+        
+        path = path.replace('\\', '/')
+        # Show the full path or do something with it
+        print(path)  # Or copy to clipboard, etc.
+
         # Create a context menu
-        context_menu = tk.Menu(root, tearoff=0)
-        context_menu.add_command(label="Open", command=lambda: print(f"Open {item}"))
-        context_menu.add_command(label="Delete", command=lambda: print(f"Delete {item}"))
+        menu = Menu(tree, tearoff=0)
+        menu.add_command(label="Download", command=lambda: download_file(path))
+        # Add more menu items if needed
 
         # Show the context menu at the mouse position
-        context_menu.post(event.x_root, event.y_root)
+        menu.post(event.x_root, event.y_root)
+
+
 
 def show_main():
     # Switch to main window

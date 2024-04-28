@@ -290,7 +290,7 @@ class Peer:
         finally:
             client_socket.close()
 
-    def sen_process(self, data) -> str:
+    def sen_process(self, data):
         # print(data)
         data = data.split(" ")
         cmd = data[0].strip().lower()
@@ -313,6 +313,7 @@ class Peer:
             peer_list = json.loads(response)
             
             print(peer_list)
+            return peer_list
         elif cmd == "upload":
             file_paths = data[1]
 
@@ -457,7 +458,7 @@ class Peer:
                     
                     # while True:   
                     #     client_socket, addr = self.server_socket.accept()
-                    threading.Thread(target=self.accept_connections, daemon=False).start() #TODO: Terminate this thread
+                    threading.Thread(target=self.accept_connections,  daemon=False).start() #TODO: Terminate this thread
 
                 peer_to_tk_q.put(result)
             elif message == "CONSOLE":
@@ -469,6 +470,10 @@ class Peer:
                 peer_to_tk_q.put(response)
             elif message == "UPLOAD":
                 message = tk_to_peer_q.get()
+                self.sen_process (data=message)
+            elif message == "DOWNLOAD":
+                message = tk_to_peer_q.get()
+                print (message)
                 self.sen_process (data=message)
             else:
                 pass
