@@ -13,7 +13,7 @@ MY_IP = socket.gethostbyname(socket.gethostname())
 PIECE_SIZE = 2 ** 20
 FORMAT = 'utf-8'
 MAX_LISTEN = 100
-SHARE_PATH = "./share/"
+# SHARE_PATH = "./share/"
 DOWNLOAD_PATH = "./download/"
 
 class Peer:
@@ -175,21 +175,8 @@ class Peer:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.connect((ip_sender, port_sender))
 
-            # s.send(filename.encode())
-
-            # s.recv(PIECE_SIZE)
-
-            # s.send(str(start).encode())
-
-            # s.recv(PIECE_SIZE)
-
-            # s.send(str(end).encode())
-
-            # print(start, " ", end)
-
-            # Sending filename, start, and end as a single message separated by a special character
+            
             message = f"{filename}*{start}*{end}"
-            # print(message)
             s.send(message.encode())
 
             # Await confirmation before continuing
@@ -199,37 +186,61 @@ class Peer:
             else:
                 print("Failed to send data correctly.")
 
-            # received_file_name = s.recv(PIECE_SIZE).decode()
-            # print(received_file_name," ")
-
-            # file_size = s.recv(PIECE_SIZE).decode()
-            # print(file_size," ")
-
-            # file = open(received_file_name, "wb")
-
-            file_bytes = b""
-
+            # file_bytes = b""
+            arr = []
             done = False
-
-            progress = tqdm.tqdm(unit="B", unit_scale=True, 
-                                 unit_divisor=1000, 
-                                 total=int(end-start))
+            progress = tqdm.tqdm(unit="B", unit_scale=True, unit_divisor=1000, total=int(end-start))
             
+            # start_time = time.time()
+            
+            # Nhận dữ liệu từ sender
+            buffer_size = 1024*1024
             while not done:
-                data = s.recv(PIECE_SIZE)
-                # print(data)
+                # part_bytes = b""
+                data = s.recv(buffer_size)
                 if data[-5:] == b"<END>":
                     done = True
-                    file_bytes += data[:-5]
+                    # part_bytes = data[:-5]
+                    arr.append(data[:-5])
                 else:
-                    file_bytes += data
-                progress.update(PIECE_SIZE)
-                # input("wait")
+                    # part_bytes = data
+                    arr.append(data)
+                # arr.append(part_bytes)
+                progress.update(len(data))
+            
+            # for file_data in arr:
+            #     file_bytes += file_data
+            print(f"start merge piece")
+            
+            file_bytes = b"".join(part for part in arr)
+            
+            print("end merge piece")
+            # end_time = time.time()
+            
+            # # Thêm vào heap
+            # addr = (ip_sender, port_sender)
+            # speed = (end-start)/(end_time-start_time) #byte/second
+            # isExisted = False
 
+            # for mem in self.download_rates:
+            #     if addr == mem[1]:
+            #         isExisted = True
+            #         if speed > abs(mem[0]):
+            #             self.download_rates.remove((mem[0], mem[1]))
+            #             heapq.heappush(self.download_rates, (-speed, addr))
+            #             isExisted = True
+            # if isExisted == False:
+            #     heapq.heappush(self.download_rates, (-speed, addr))
+            
+            # if len(self.download_rates) >= 4:
+            #     heapq.heappop(self.download_rates)
+
+            # Ghi dữ liệu piece
+            print('start add arr')
             with self.part_data_lock:
                 part_data.append((start, file_bytes))
                 s.send("done".encode())
-
+            print('end add arr')
             # file.write(file_bytes)
 
         except Exception as e:
@@ -248,20 +259,6 @@ class Peer:
     # send file
     def handle_peer(self, client_socket):
         try:
-            # filename = client_socket.recv(PIECE_SIZE).decode()
-            # print(filename)
-
-            # client_socket.send("done".encode())
-
-            # start = client_socket.recv(PIECE_SIZE).decode()
-
-            # client_socket.send("done".encode())
-
-            # end = client_socket.recv(PIECE_SIZE).decode()
-            
-            # print(start," ", end)
-            # print(type(start))
-
             data = client_socket.recv(PIECE_SIZE).decode()
             # print(data)
             if data:
@@ -296,12 +293,21 @@ class Peer:
                     # path = os.path.join(SHARE_PATH, f)
                     print(f)
                     with open(f, 'rb') as file:
+                        print(f)
                         file.seek(start)
                         numbytes = end - start
-                        data = file.read(numbytes)
-                        # print(data)
-                        client_socket.sendall(data)
-                        # print("end")
+                        buffer_size = 1024*1024
+                        while numbytes:
+                            data = file.read(min(numbytes, buffer_size))
+                            client_socket.send(data)
+                            # print(numbytes)
+                            # print(data)
+                            # print(len(data))
+                            # input()
+                            if(len(data) == 0):
+                                break
+                            numbytes -= len(data)
+
                         client_socket.send(b"<END>")
                         if(client_socket.recv(PIECE_SIZE).decode() == "done"):
                             pass
@@ -312,6 +318,7 @@ class Peer:
         except Exception as e:
             print(f"Error: {e}")
         finally:
+            client_socket.close()
             client_socket.close()
 
     def normalize_path(self, path):
@@ -365,7 +372,7 @@ class Peer:
                                 # print(2)
                                 slash_id = file_rel_path.rindex('/')
 
-                                file_rel_path = file_rel_path[slash_id+1:]
+                                file_rel_path = file_rel_path[slash_id + 1:]
                         except Exception as e:
                             print(e)
                         
@@ -383,7 +390,7 @@ class Peer:
                         pieces.append(math.ceil(file_size/PIECE_SIZE))
                 
                 metainfo.append({
-                    'name': temp_path if temp_path != SHARE_PATH else '',
+                    'name': temp_path,
                     'is_folder': True,
                     'files': files, #['b.txt','temp.png']
                     'sizes': sizes, #[23,1500]
@@ -407,7 +414,7 @@ class Peer:
                         # print(2)
                         slash_id = file_path.rindex('/')
 
-                        file_path = file_path[slash_id+1:]
+                        file_path = file_path[slash_id + 1:]
                 except Exception as e:
                     print(e)
                 
@@ -726,8 +733,8 @@ class Peer:
             # print(data)
             sum_hash = self.create_hash_data(data)
             
-            print(sum_hash)
-            print(hash)
+            # print(sum_hash)
+            # print(hash)
 
             # with part_data_lock:
             #     for i, result in enumerate(part_data):
@@ -782,6 +789,9 @@ class Peer:
             thread.join()
 
         print(f"Download finish.")
+
+        # for speed in self.download_rates:
+        #     print(speed[0]," ",speed[1], end='\n')
     
 if __name__ == "__main__":
     TRACKER_IP = input("Please enter Tracker's IP you want to connect:")
