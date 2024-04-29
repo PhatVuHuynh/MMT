@@ -204,24 +204,32 @@ class Folder:
             self.parent_folder.child_folders.remove(self)
             self.parent_folder = None
 
+def tree(folder:Folder, indent='')->str:
+    lines = []  # List to hold the lines of the folder structure
 
-def print_tree(folder:Folder, indent=''):
-    # Print the current folder name
-    print(f"{indent}{folder.name}/")
-    new_indent = indent + '│   '
+    # Function to add lines to the list
+    def add_line(text):
+        lines.append(text)
 
-    # Print all the files in the current folder
-    for file in folder.files:
-        print(f"{new_indent}{file.name}")
+    # Recursive function to build the folder structure
+    def build_tree(folder:Folder, indent=''):
+        add_line(f"{indent}{folder.name}/")
+        new_indent = indent + '│   '
 
-    # Recursively print the child folders
-    for i, child_folder in enumerate(folder.child_folders):
-        # Check if this is the last child folder to adjust the tree branch symbol
-        if i == len(folder.child_folders) - 1:
-            sub_indent = indent + '    '
-        else:
-            sub_indent = indent + '│   '
-        print_tree(child_folder, sub_indent)
+        for file in folder.files:
+            add_line(f"{new_indent}{file.name}")
+
+        for i, child_folder in enumerate(folder.child_folders):
+            if i == len(folder.child_folders) - 1:
+                sub_indent = indent + '    '
+            else:
+                sub_indent = indent + '│   '
+            build_tree(child_folder, sub_indent)
+
+    build_tree(folder)  # Start building the tree from the root folder
+    return '\n'.join(lines)  # Join all the lines into a single string and return
+
+
 
 
 test = False
@@ -230,6 +238,7 @@ if __name__ == "__main__":
     path = "C:/Users/tuankiet/Desktop/MMT"
     my_folder = Folder(path)
     # my_folder.set_path("C:/")
+    print(tree(my_folder))
 
     
     file = my_folder.get_file("download/peer_data/peer.py")
