@@ -11,7 +11,7 @@ MY_IP = socket.gethostbyname(socket.gethostname())
 PIECE_SIZE = 2 ** 20
 FORMAT = 'utf-8'
 MAX_LISTEN = 100
-SHARE_PATH = "./share/"
+# SHARE_PATH = "./share/"
 DOWNLOAD_PATH = "./download/"
 
 class Peer:
@@ -30,19 +30,19 @@ class Peer:
         if(flag):
             self.register_with_tracker()
 
-            if(os.path.exists(SHARE_PATH) == False):
-                os.mkdir(SHARE_PATH)
-            else:
-                metainfo = self.create_metainfo(SHARE_PATH)
+            # if(os.path.exists(SHARE_PATH) == False):
+            #     os.mkdir(SHARE_PATH)
+            # else:
+            #     metainfo = self.create_metainfo(SHARE_PATH)
                 
-                # print(metainfo)
+            #     # print(metainfo)
 
-                message = json.dumps({'command': 'upload', 'metainfo': metainfo}).encode()
-                # print(message)
-                self.client_to_tracker.send(message)
+            #     message = json.dumps({'command': 'upload', 'metainfo': metainfo}).encode()
+            #     # print(message)
+            #     self.client_to_tracker.send(message)
 
-                response = self.client_to_tracker.recv(1024).decode()
-                print(response)
+            #     response = self.client_to_tracker.recv(1024).decode()
+            #     print(response)
             
             if(os.path.exists(DOWNLOAD_PATH) == False):
                 os.mkdir(DOWNLOAD_PATH)
@@ -139,6 +139,7 @@ class Peer:
             'hashes': self.hashes
         })
         self.client_to_tracker.send(message.encode())
+        self.client_to_tracker.recv(PIECE_SIZE)
 
     #Tạo tổng hash của file_name
     def create_hash_file(self, file_name):
@@ -193,11 +194,11 @@ class Peer:
             s.connect((ip_sender, port_sender))
 
             
-            message = f"{filename}:{start}:{end}"
+            message = f"{filename}*{start}*{end}"
             s.send(message.encode())
 
             # Await confirmation before continuing
-            response = s.recv(1024).decode()
+            response = s.recv(PIECE_SIZE).decode()
             if response == "done":
                 print(f"Start: {start}, End: {end} sent successfully.")
             else:
@@ -256,6 +257,7 @@ class Peer:
             print('start add arr')
             with self.part_data_lock:
                 part_data.append((start, file_bytes))
+                s.send("done".encode())
             print('end add arr')
             # file.write(file_bytes)
 
@@ -275,20 +277,6 @@ class Peer:
     # send file
     def handle_peer(self, client_socket):
         try:
-            # filename = client_socket.recv(PIECE_SIZE).decode()
-            # print(filename)
-
-            # client_socket.send("done".encode())
-
-            # start = client_socket.recv(PIECE_SIZE).decode()
-
-            # client_socket.send("done".encode())
-
-            # end = client_socket.recv(PIECE_SIZE).decode()
-            
-            # print(start," ", end)
-            # print(type(start))
-
             data = client_socket.recv(PIECE_SIZE).decode()
             # print(data)
             if data:
@@ -323,12 +311,21 @@ class Peer:
                     # path = os.path.join(SHARE_PATH, f)
                     print(f)
                     with open(f, 'rb') as file:
+                        print(f)
                         file.seek(start)
                         numbytes = end - start
-                        data = file.read(numbytes)
-                        # print(data)
-                        client_socket.sendall(data)
-                        # print("end")
+                        buffer_size = 1024*1024
+                        while numbytes:
+                            data = file.read(min(numbytes, buffer_size))
+                            client_socket.send(data)
+                            # print(numbytes)
+                            # print(data)
+                            # print(len(data))
+                            # input()
+                            if(len(data) == 0):
+                                break
+                            numbytes -= len(data)
+
                         client_socket.send(b"<END>")
                         if(client_socket.recv(PIECE_SIZE).decode() == "done"):
                             pass
@@ -339,6 +336,7 @@ class Peer:
         except Exception as e:
             print(f"Error: {e}")
         finally:
+            client_socket.close()
             client_socket.close()
 
     def normalize_path(self, path):
@@ -392,7 +390,7 @@ class Peer:
                                 # print(2)
                                 slash_id = file_rel_path.rindex('/')
 
-                                file_rel_path = file_rel_path[slash_id:]
+                                file_rel_path = file_rel_path[slash_id + 1:]
                         except Exception as e:
                             print(e)
                         
@@ -410,7 +408,7 @@ class Peer:
                         pieces.append(math.ceil(file_size/PIECE_SIZE))
                 
                 metainfo.append({
-                    'name': temp_path if temp_path != SHARE_PATH else '',
+                    'name': temp_path,
                     'is_folder': True,
                     'files': files, #['b.txt','temp.png']
                     'sizes': sizes, #[23,1500]
@@ -434,7 +432,7 @@ class Peer:
                         # print(2)
                         slash_id = file_path.rindex('/')
 
-                        file_path = file_path[slash_id:]
+                        file_path = file_path[slash_id + 1:]
                 except Exception as e:
                     print(e)
                 
@@ -504,6 +502,7 @@ class Peer:
             self.client_to_tracker.send(message.encode())
             
             response = self.client_to_tracker.recv(1024).decode()
+            print(response)
             
             peer_list = json.loads(response)
             
@@ -682,8 +681,8 @@ class Peer:
             # print(data)
             sum_hash = self.create_hash_data(data)
             
-            print(sum_hash)
-            print(hash)
+            # print(sum_hash)
+            # print(hash)
 
             # with part_data_lock:
             #     for i, result in enumerate(part_data):
@@ -738,6 +737,9 @@ class Peer:
             thread.join()
 
         print(f"Download finish.")
+
+        # for speed in self.download_rates:
+        #     print(speed[0]," ",speed[1], end='\n')
     
 if __name__ == "__main__":
     TRACKER_IP = input("Please enter Tracker's IP you want to connect:")
