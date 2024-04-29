@@ -20,7 +20,7 @@ class File:
         self.path = path
         self.size = os.path.getsize(path)
         self.local_size = self.size
-        
+        self.treeview_id = None
         if file_hash is None:
             self.file_hash = self._calculate_hash(self.path)
         else:
@@ -78,6 +78,7 @@ class Folder:
         self.child_folders = []
         self.files = []
         self.status = status
+        self.treeview_id = None
         global test
         if test: print (f"CREATING folder name \"{self.name}\" with the path \"{self.path}\"")
         self._initialize_folder_structure()
@@ -259,9 +260,10 @@ if __name__ == "__main__":
     path = "C:/Users/tuankiet/Desktop/MMT"
     my_folder = Folder(path)
     # my_folder.set_path("C:/")
-    # print(tree(my_folder))
+    my_folder.remove_path()
+    print(tree(my_folder))
 
     
-    file = my_folder.get_file("download/peer_data/New folder/New folder/New folder/New folder/text.txt")
-    if file: print(file.path)
-    else: print ("not found")
+    # file = my_folder.get_subfolder("download/peer_data/New folder/New folder/New folder/New folder/")
+    # if file: print(file.path)
+    # else: print ("not found")

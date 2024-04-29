@@ -23,40 +23,44 @@ def upload_folder(): #TODO
     folder_path = filedialog.askdirectory()
     print (f"upload {folder_path}")
     if folder_path:
-        tk_to_peer_q.put("UPLOAD")
-        tk_to_peer_q.put(f"upload {folder_path}")
-        root.after(100, update_list)
+        new_folder = Folder(folder_path, status="Downloaded")
+        tk_to_peer_q.put("UPLOAD FOLDER")
+        tk_to_peer_q.put(new_folder)
+
 def upload_file(): #TODO
-    folder_path = filedialog.askopenfilename()
-    # print(folder_path)
-    if folder_path:
-        tk_to_peer_q.put("UPLOAD")
-        tk_to_peer_q.put(f"upload {folder_path}")
-        root.after(100, update_list)
+    file_path = filedialog.askopenfilename()
+    if file_path:
+        new_file = File(file_path, status="Downloaded")
+        tk_to_peer_q.put("UPLOAD FILE")
+        tk_to_peer_q.put(new_file)
 
-def update_list():
+def request_list():
     tk_to_peer_q.put("GET LIST")
-    file_list = peer_to_tk_q.get()
-    for item in tree.get_children():
-        tree.delete(item)
-    # Create a dictionary to hold the tree structure
-    tree_structure = {}
-    print(file_list)
-    for item in file_list:
-        parts = item.split('\\')
-        node = tree_structure
-        
-        for part in parts:
-            node = node.setdefault(part, {})
 
-    # Function to populate the tree view
-    def populate_tree(tree, parent, dictionary):
-        for key, value in dictionary.items():
-            child = tree.insert(parent, 'end', text=key)
-            if value:
-                populate_tree(tree, child, value)
-    # Populate the Treeview with data
-    populate_tree(tree, '', tree_structure)
+def update_list(event=None):
+    def update_treeview(tree, folder, parent=''):
+        if isinstance(folder, Folder):
+        # Add the folder to the Treeview
+            folder_id = tree.insert(parent, 'end', text=folder.name, values=('',folder.status, 'Folder', folder.path))
+            folder.treeview_id = folder_id
+            # Add all files in the folder to the Treeview
+            for file in folder.files:
+                file_id = tree.insert(folder_id, 'end', text=file.name, values=(file.file_hash, file.status, 'File', file.path))
+                file.treeview_id = file_id
+            # Recursively add subfolders and their files
+            for subfolder in folder.child_folders:
+                update_treeview(tree, subfolder, folder_id)
+                
+        elif isinstance(folder, File):
+            folder_id = tree.insert(parent, 'end', text=folder.name, values=(folder.file_hash, folder.status, 'File', folder.path))
+            folder.treeview_id = folder_id
+            
+    global tree
+    folder_list = peer_to_tk_q.get(block=False)
+    with file_list_lock:
+        for folder in folder_list:
+            update_treeview(tree, folder)
+
     
 def download_file(path:str):
     tk_to_peer_q.put("DOWNLOAD")
@@ -125,36 +129,57 @@ def text_area_insert(message:str, from_user = False):
         console_text_area.config(state='disabled')  # Disable text area again
         console_text_area.see(tk.END)
 
-import tkinter as tk
-from tkinter import ttk, Menu
 
 def on_right_click(event):
-    # Identify the clicked item
+    # Identify the Treeview item that was clicked
     item_id = tree.identify_row(event.y)
     if item_id:
-        # Get the item's text
-        item_text = tree.item(item_id, 'text')
-        # Initialize the path with the item's text
-        path = item_text
-        # Walk up the tree to build the full path
-        parent_id = tree.parent(item_id)
-        while parent_id:
-            parent_text = tree.item(parent_id, 'text')
-            path = parent_text + '\\' + path
-            parent_id = tree.parent(parent_id)
+        # Get the item type (File or Folder) and Status
+        item_values = tree.item(item_id, 'values')
+        item_status = item_values[1]
         
-        path = path.replace('\\', '/')
-        # Show the full path or do something with it
-        print(path)  # Or copy to clipboard, etc.
-
         # Create a context menu
-        menu = Menu(tree, tearoff=0)
-        menu.add_command(label="Download", command=lambda: download_file(path))
-        # Add more menu items if needed
-
+        context_menu = tk.Menu(tree, tearoff=0)
+        
+        # Add "Download" command to the context menu
+        context_menu.add_command(label="Download", command=lambda: download_files())
+        
+        # Disable the "Download" option if the item status is "Downloaded"
+        if item_status == 'Downloaded' or item_status == 'Downloading':
+            context_menu.entryconfig("Download", state=tk.DISABLED)
+        
         # Show the context menu at the mouse position
-        menu.post(event.x_root, event.y_root)
+        context_menu.post(event.x_root, event.y_root)
 
+
+def download_files():
+    # Get all selected items
+    selected_items = tree.selection()
+    for item_id in selected_items:
+        file_name = tree.item(item_id, 'text')
+        file_hash = tree.item(item_id, 'values')[0]
+        file_type = tree.item(item_id, 'values')[2]
+        path_parts = []
+        current_item = item_id
+        # Implement the download logic here
+        while True:
+            parent_id = tree.parent(current_item)
+            if not current_item:  # If there's no parent, we've reached the top
+                break
+            # Prepend the name of the current item to the path parts
+            path_parts.insert(0, tree.item(current_item, 'text'))
+            current_item = parent_id
+        # Join the parts with underscores to get the desired format
+        relative_path = '/'.join(path_parts)
+        file_hash = tree.item(item_id, 'values')[0]
+        # Print the tuple with hash and relative path
+        if file_type == "File":
+            tk_to_peer_q.put('DOWNLOAD FILE')
+            tk_to_peer_q.put((file_hash, relative_path))
+            
+        elif file_type == "Folder":
+            tk_to_peer_q.put('DOWNLOAD FOLDER')
+            tk_to_peer_q.put( relative_path)
 
 
 def show_main():
@@ -176,7 +201,8 @@ if __name__ == "__main__":
     ipv4addr = socket.gethostbyname(socket.gethostname())
     port_number = random.randint(49152, 65535)
     peer = Peer(my_ip=ipv4addr, my_port=port_number)
-        
+    
+    
     root = tk.Tk()
     root.title("Connect to Tracker")
     root.resizable(False, False)
@@ -184,7 +210,8 @@ if __name__ == "__main__":
 
     tk_to_peer_q = queue.Queue()
     peer_to_tk_q = queue.Queue()
-    backend_thread = threading.Thread(target=peer.run, args=(root, tk_to_peer_q,peer_to_tk_q,), daemon=True )
+    file_list_lock = threading.Lock()
+    backend_thread = threading.Thread(target=peer.run, args=(root, tk_to_peer_q,peer_to_tk_q,file_list_lock,), daemon=True )
 
     
     root.geometry("400x200")
@@ -253,13 +280,13 @@ if __name__ == "__main__":
     tree['columns'] = ('Hash', 'Status', 'Type','Path')
     tree.column('#0', width=150, minwidth=150, stretch=tk.NO)
     tree.column('Hash', width=200, minwidth=200, stretch=tk.NO)
-    tree.column('Status', width=120, minwidth=120, stretch=tk.NO)  # Adjust the width as needed
+    # tree.column('Status', width=120, minwidth=120, stretch=tk.NO)  # Adjust the width as needed
     tree.column('Type', width=100, minwidth=100, stretch=tk.NO)
     tree.column('Path', width=270, minwidth=270, stretch=tk.NO)
     
     tree.heading('#0', text='Name', anchor=tk.W)
     tree.heading('Hash', text='Hash', anchor=tk.W)
-    tree.heading('Status', text='Status', anchor=tk.W)  # Add a heading for the new column
+    # tree.heading('Status', text='Status', anchor=tk.W)  # Add a heading for the new column
     tree.heading('Type', text='Type', anchor=tk.W)
     tree.heading('Path', text='Path', anchor=tk.W)
     # folder1 = tree.insert('', 'end', text='Folder 1', values=('10 KB', 'Folder', 'Downloading'))
@@ -282,7 +309,7 @@ if __name__ == "__main__":
     file_menu = tk.Menu(menu_bar, tearoff=0)
     file_menu.add_command(label="Upload file", command=upload_file)
     file_menu.add_command(label="Upload folder", command=upload_folder)
-    file_menu.add_command(label="Update list", command=update_list)
+    file_menu.add_command(label="Update list", command=request_list)
     # file_menu.add_separator()
     menu_bar.add_cascade(label="File", menu=file_menu)
 
@@ -300,6 +327,7 @@ if __name__ == "__main__":
     root.config(menu=menu_bar)
     
     root.bind("<<ReceiveLogin>>", receive_validate_login)
+    root.bind("<<UpdateList>>", update_list)
     #create timer
     root.after(10, timer_trigger)
     

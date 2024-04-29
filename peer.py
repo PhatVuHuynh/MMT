@@ -31,6 +31,7 @@ class Peer:
             self.files = file
 
         self.part_data_lock = threading.Lock()
+        self.file_list_lock = None
 
         sizes, hashes = [],[]
         for file in self.files:
@@ -563,8 +564,9 @@ class Peer:
                 break
             
             
-    def run(self, gui:tk.Tk, tk_to_peer_q:queue.Queue, peer_to_tk_q:queue.Queue) -> None: #similar to send, wait for a command
+    def run(self, gui:tk.Tk, tk_to_peer_q:queue.Queue, peer_to_tk_q:queue.Queue, lock:threading.Lock) -> None: #similar to send, wait for a command
         q = queue.Queue()
+        self.file_list_lock=lock
         while True:
             message = tk_to_peer_q.get() #block here
             print (message)
@@ -577,31 +579,14 @@ class Peer:
                 result = self.connect_tracker(tracker_host=tracker_host, tracker_port=tracker_port)
                 if(result):
                     self.register_with_tracker()
-            
-                    # if(os.path.exists(SHARE_PATH) == False):
-                    #     os.mkdir(SHARE_PATH)
-                    # else:
-                    #     metainfo = self.create_metainfo(SHARE_PATH)
-                        
-                    #     # print(metainfo)
-
-                    #     message = json.dumps({'command': 'upload', 'metainfo': metainfo}).encode()
-                    #     # print(message)
-                    #     self.client_to_tracker.send(message)
-
-                    #     response = self.client_to_tracker.recv(1024).decode()
-                    #     print(response)
                     
                     if(os.path.exists(DOWNLOAD_PATH) == False):
                         os.mkdir(DOWNLOAD_PATH)
                 
-                    # socket to connect other peer
                     self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     self.server_socket.bind((self.my_ip, self.my_port))
                     self.server_socket.listen(MAX_LISTEN)
                     
-                    # while True:   
-                    #     client_socket, addr = self.server_socket.accept()
                     threading.Thread(target=self.accept_connections, daemon=True).start()
                 peer_to_tk_q.put(result)
                 gui.event_generate("<<ReceiveLogin>>", when="tail")
@@ -632,12 +617,12 @@ class Peer:
                 peer_to_tk_q.put(reponse_list)
                 gui.event_generate("<<UpdateList>>", when="tail")
                 
-            elif message == "DOWNLOAD":
-                message = tk_to_peer_q.get()
-                print (message)
-                self.sen_process (data=message, q=q)
-                response = q.get(timeout=5)
-                
+            elif message == "DOWNLOAD FILE":
+                file_hash, file_name = tk_to_peer_q.get()
+                self.request_download_file(file_name=file_name, file_hash=file_hash)
+            elif message == 'DOWNLOAD FOLDER':
+                folder_name = tk_to_peer_q.get()
+                self.request_download_folder(folder_name)
             else:
                 pass
             
