@@ -14,7 +14,7 @@ MY_IP = socket.gethostbyname(socket.gethostname())
 PIECE_SIZE = 2 ** 20
 FORMAT = 'utf-8'
 MAX_LISTEN = 100
-SHARE_PATH = "./share/"
+# SHARE_PATH = "./share/"
 DOWNLOAD_PATH = "./download/"
 
 class Peer:

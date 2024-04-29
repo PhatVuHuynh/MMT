@@ -11,8 +11,8 @@ class InvalidPathError(Exception):
     pass
 
 class File:
-    def __init__(self, path, file_hash=None, name = None, parent_folder=None):
-        path = path.replace("\\", "/")
+    def __init__(self, path:str, file_hash=None, name = None, parent_folder=None):
+        path = path.replace("\\", "/").strip()
         if not os.path.exists(path): raise InvalidPathError(f"The new path \"{path}\" is not a valid path.")
         if name is None: self.name = os.path.basename(path)
         else:            self.name = name
@@ -23,6 +23,7 @@ class File:
             self.file_hash = self._calculate_hash(self.path)
         else:
             self.file_hash = file_hash
+            
         self.parent_folder = parent_folder
         
         global test
@@ -33,13 +34,13 @@ class File:
     
     def set_path(self, new_path):
         # Normalize the new path and ensure it ends with a slash
-        new_path = new_path.replace("\\", "/")
+        new_path = new_path.replace("\\", "/").strip()
         # if not os.path.exists(new_path): raise InvalidPathError(f"The new path \"{new_path}\" is not a valid path.")
         new_path = os.path.join(os.path.normpath(new_path), '')
         
         # Update the file's path
         self.path = os.path.join(new_path, self.name)
-        self.path = self.path.replace("\\", "/")
+        self.path = self.path.replace("\\", "/").strip()
         global test
         if test: print (f"The file name \"{self.name}\" now has the path \"{self.path}\"")
     def _calculate_hash(self, file_path) -> str:
@@ -53,9 +54,14 @@ class File:
                 piece_offset += len(piece)
                 piece = file.read(PIECE_SIZE)
         return hash_sum
+    
+    def detach_parent(self):
+        if self.parent_folder:
+            self.parent_folder.files.remove(self)
+            self.parent_folder = None
 class Folder:
-    def __init__(self, path, name = None, parent_folder=None):
-        path = path.replace("\\", "/")
+    def __init__(self, path:str, name = None, parent_folder=None):
+        path = path.replace("\\", "/").strip()
         if not os.path.isdir(path):
             raise InvalidPathError(f"The path \"{path}\" is not a valid directory.")
         
@@ -111,12 +117,12 @@ class Folder:
     
     def set_path(self, new_path):
         # Normalize the new path and ensure it ends with a slash
-        new_path = new_path.replace("\\", "/")
+        new_path = new_path.replace("\\", "/").strip()
         # if not os.path.isdir(new_path): raise InvalidPathError(f"The path \"{new_path}\" is not a valid directory.")
         new_path = os.path.join(os.path.normpath(new_path), '')
         # Update the folder's path
         self.path = os.path.join(new_path, self.name)
-        self.path = self.path.replace("\\", "/")
+        self.path = self.path.replace("\\", "/").strip()
         
         global test
         if test: print (f"The folder name \"{self.name}\" now has the path \"{self.path}\"")
@@ -142,6 +148,60 @@ class Folder:
 
         return hash_sum
 
+    def get_subfolder(self, subfolder_path: str):
+        subfolder_path = subfolder_path.replace("\\", "/").strip().rstrip('/')
+        subfolder_names = subfolder_path.split("/")
+        current_folder = self
+
+        for subfolder_name in subfolder_names:
+            found_subfolder = None
+            for folder in current_folder.child_folders:
+                if folder.name == subfolder_name:
+                    found_subfolder = folder
+                    break
+
+            if found_subfolder:
+                current_folder = found_subfolder
+            else:
+                return None  # Subfolder not found
+
+        if isinstance(current_folder, Folder):
+            return current_folder
+        else: 
+            return None
+        
+    def get_file(self, file_path:str) -> File:
+        file_path = file_path.replace("\\", "/").strip()
+        if file_path != file_path.rstrip('/'): return None
+        
+        parts = file_path.split('/')
+        file_name = parts[-1]
+        subfolder_names = parts[:-1]
+
+        # Traverse the subfolders
+        current_folder = self
+        for subfolder_name in subfolder_names:
+            found = False
+            for folder in current_folder.child_folders:
+                if folder.name == subfolder_name:
+                    current_folder = folder
+                    found = True
+                    break
+            if not found:
+                return None  # Subfolder not found
+
+        # Look for the file in the final subfolder
+        for file in current_folder.files:
+            if file.name == file_name:
+                return file  # File found
+
+        return None 
+        
+    def detach_parent(self):
+        if self.parent_folder:
+            self.parent_folder.child_folders.remove(self)
+            self.parent_folder = None
+
 
 def print_tree(folder:Folder, indent=''):
     # Print the current folder name
@@ -164,9 +224,12 @@ def print_tree(folder:Folder, indent=''):
 
 test = False
 if __name__ == "__main__":
-    test = True
-    path = "C:/Users/tuankiet/Desktop/parent"
+    # test = True
+    path = "C:/Users/tuankiet/Desktop/MMT"
     my_folder = Folder(path)
     # my_folder.set_path("C:/")
-    print_tree(my_folder)
+
+    
+    file = my_folder.get_file("download/peer_data/peer.py")
+    if file: print(file.path)
 
