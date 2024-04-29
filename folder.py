@@ -5,6 +5,7 @@ class InvalidPathError(Exception):
 
 class File:
     def __init__(self, path, file_hash, name = None, parent_folder=None):
+        path = path.replace("\\", "/")
         if name is None: self.name = os.path.basename(path)
         else:            self.name = name
         
@@ -17,6 +18,7 @@ class File:
 
 class Folder:
     def __init__(self, path, name = None, parent_folder=None):
+        path = path.replace("\\", "/")
         if not os.path.isdir(path):
             raise InvalidPathError(f"The path {path} is not a valid directory.")
         
@@ -66,5 +68,8 @@ test = False
 if __name__ == "__main__":
     test = True
     # my_folder = Folder(r"C:\Users\tuankiet\Google Drive\Study in HCMUT\232\Software Engineering")
-    my_folder = Folder(r"C:\Users\tuankiet\Desktop\MMT\download")
+    path = "C:/Users/tuankiet/Desktop/MMT/"
+    
+    print(path)
+    my_folder = Folder(path)
 
