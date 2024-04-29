@@ -18,6 +18,8 @@ class File:
         else:            self.name = name
         
         self.path = path
+        self.size = os.path.getsize(path)
+        self.local_size = self.size
         
         if file_hash is None:
             self.file_hash = self._calculate_hash(self.path)
@@ -25,7 +27,7 @@ class File:
             self.file_hash = file_hash
             
         self.parent_folder = parent_folder
-        self.status = status
+        self.status = status #downllaoed, '' downnloading (80%)
         
         global test
         if test: print (f"CREATING file name \"{self.name}\" with the path \"{self.path}\" in parent \"{self.parent_folder.name}\"")
@@ -69,6 +71,8 @@ class Folder:
         if name is None: self.name = os.path.basename(os.path.normpath(path))
         else:            self.name = name
         
+        self.size = 0
+        self.local_size = 0
         self.path = path
         self.parent_folder = parent_folder
         self.child_folders = []
@@ -96,7 +100,10 @@ class Folder:
                 file_hash = self._calculate_hash(file_path)
                 file = File(file_path, file_hash=file_hash,  name=file_name, parent_folder=self, status=self.status)
                 self.add_file(file)
-
+                
+        self.size = sum(file.size for file in self.files) + sum(folder.size for folder in self.child_folders)
+        self.local_size = 0 + self.size
+    
     def add_file(self, file):
         file.path = f"{self.path}/{file.name}"
         file.parent_folder = self
@@ -172,33 +179,47 @@ class Folder:
         else: 
             return None
         
-    def get_file(self, file_path:str) -> File:
-        file_path = file_path.replace("\\", "/").strip()
-        if file_path != file_path.rstrip('/'): return None
-        
-        parts = file_path.split('/')
-        file_name = parts[-1]
-        subfolder_names = parts[:-1]
+    def get_file(self, file_path:str, hash=None):
+        if file_path:
+            file_path = file_path.replace("\\", "/").strip()
+            if file_path != file_path.rstrip('/'): return None
+            
+            parts = file_path.split('/')
+            file_name = parts[-1]
+            subfolder_names = parts[:-1]
 
-        # Traverse the subfolders
-        current_folder = self
-        for subfolder_name in subfolder_names:
-            found = False
-            for folder in current_folder.child_folders:
-                if folder.name == subfolder_name:
-                    current_folder = folder
-                    found = True
-                    break
-            if not found:
-                return None  # Subfolder not found
+            # Traverse the subfolders
+            current_folder = self
+            for subfolder_name in subfolder_names:
+                found = False
+                for folder in current_folder.child_folders:
+                    if folder.name == subfolder_name:
+                        current_folder = folder
+                        found = True
+                        break
+                if not found:
+                    return None  # Subfolder not found
 
-        # Look for the file in the final subfolder
-        for file in current_folder.files:
-            if file.name == file_name:
-                return file  # File found
+            # Look for the file in the final subfolder
+            for file in current_folder.files:
+                if (file.name == file_name) and isinstance(file, File) and ((hash is None) or (file.file_hash == hash)):
+                    return file  # File found
 
-        return None 
-        
+            return None 
+        elif hash:
+            for file in self.files:
+                if file.file_hash == hash:
+                    return file
+
+            # Recursively check all subfolders
+            for folder in self.child_folders:
+                found_file = folder.get_file(file_path=None, hash=hash)
+                if found_file:
+                    return found_file
+
+            return None
+
+
     def detach_parent(self):
         if self.parent_folder:
             self.parent_folder.child_folders.remove(self)
@@ -238,9 +259,9 @@ if __name__ == "__main__":
     path = "C:/Users/tuankiet/Desktop/MMT"
     my_folder = Folder(path)
     # my_folder.set_path("C:/")
-    print(tree(my_folder))
+    # print(tree(my_folder))
 
     
-    file = my_folder.get_file("download/peer_data/peer.py")
+    file = my_folder.get_file("download/peer_data/New folder/New folder/New folder/New folder/text.txt")
     if file: print(file.path)
-
+    else: print ("not found")
