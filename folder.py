@@ -11,7 +11,7 @@ class InvalidPathError(Exception):
     pass
 
 class File:
-    def __init__(self, path:str, file_hash=None, name = None, parent_folder=None):
+    def __init__(self, path:str, file_hash=None, name = None, parent_folder=None, status='Downloaded'):
         path = path.replace("\\", "/").strip()
         if not os.path.exists(path): raise InvalidPathError(f"The new path \"{path}\" is not a valid path.")
         if name is None: self.name = os.path.basename(path)
@@ -25,6 +25,7 @@ class File:
             self.file_hash = file_hash
             
         self.parent_folder = parent_folder
+        self.status = status
         
         global test
         if test: print (f"CREATING file name \"{self.name}\" with the path \"{self.path}\" in parent \"{self.parent_folder.name}\"")
@@ -60,7 +61,7 @@ class File:
             self.parent_folder.files.remove(self)
             self.parent_folder = None
 class Folder:
-    def __init__(self, path:str, name = None, parent_folder=None):
+    def __init__(self, path:str, name = None, parent_folder=None, status ="Downloaded"):
         path = path.replace("\\", "/").strip()
         if not os.path.isdir(path):
             raise InvalidPathError(f"The path \"{path}\" is not a valid directory.")
@@ -72,6 +73,7 @@ class Folder:
         self.parent_folder = parent_folder
         self.child_folders = []
         self.files = []
+        self.status = status
         global test
         if test: print (f"CREATING folder name \"{self.name}\" with the path \"{self.path}\"")
         self._initialize_folder_structure()
