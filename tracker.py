@@ -34,13 +34,15 @@ class Tracker:
     def handle_client(self, client_socket, addr):
         try:
             while True:
-                # print(addr)
+                print(2)
                 try:
                     data = client_socket.recv(PIECE_SIZE)
+                    print (data)
                 except:
                     print(self.peers)
                     self.peers.pop(addr)
                     print(self.peers)
+                    print(3)
                     return
                 
                 print(data)
@@ -65,7 +67,9 @@ class Tracker:
                         'hashes': data['hashes'],
                         'pieces': pieces
                     }
-                    print(f"Registered {addr} with files: {data['files']}, IP: {data['ip']}, Port: {data['port']}")
+                    response = (f"Registered {addr} with files: {data['files']}, IP: {data['ip']}, Port: {data['port']}")
+                    print(response)
+                    client_socket.send(response.encode())
                 elif command == 'request':
                     print(data)
                     filename = data['file']
@@ -116,7 +120,7 @@ class Tracker:
                     response = json.dumps(available_files).encode()
                     # print("in")
                     client_socket.send(response)
-
+                    
                 elif command == 'upload':
                     try:
                         print(data['metainfo'])
