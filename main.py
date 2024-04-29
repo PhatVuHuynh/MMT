@@ -8,6 +8,7 @@ from tkinter import messagebox
 from peer import *
 from tracker import *
 from tkinter import filedialog
+from folder import *
 
 #TODO: SEPERATE LOGIN WINDOW AND MAIN
 def timer_trigger():
@@ -75,7 +76,7 @@ def get_local_ipv4():
         print(f"Error getting local IP: {e}")
         return None
 
-def validate_login(event = None):
+def send_validate_login(event = None):
     # Dummy validation for demonstration
     global url_entry
     global port_entry
@@ -89,7 +90,9 @@ def validate_login(event = None):
     
     tk_to_peer_q.put("CONNECT")
     tk_to_peer_q.put((url, port,))
-    connect_result = peer_to_tk_q.get()
+
+def receive_validate_login(event=None):
+    connect_result = peer_to_tk_q.get(block=False)
     if connect_result == True:
         show_main()
     else:
@@ -173,15 +176,15 @@ if __name__ == "__main__":
     ipv4addr = socket.gethostbyname(socket.gethostname())
     port_number = random.randint(49152, 65535)
     peer = Peer(my_ip=ipv4addr, my_port=port_number)
-    
-    tk_to_peer_q = queue.Queue()
-    peer_to_tk_q = queue.Queue()
-    backend_thread = threading.Thread(target=peer.run, args=(tk_to_peer_q,peer_to_tk_q,  ) )
-    
+        
     root = tk.Tk()
     root.title("Connect to Tracker")
     root.resizable(False, False)
     root.protocol("WM_DELETE_WINDOW", lambda: [tk_to_peer_q.put(None), root.destroy()])
+
+    tk_to_peer_q = queue.Queue()
+    peer_to_tk_q = queue.Queue()
+    backend_thread = threading.Thread(target=peer.run, args=(root, tk_to_peer_q,peer_to_tk_q,), daemon=True )
 
     
     root.geometry("400x200")
@@ -200,10 +203,10 @@ if __name__ == "__main__":
     port_entry.grid(row=1, column=1, padx=10, pady=5)
 
     # Login button
-    login_button = tk.Button(login_frame, text="Connect", command=validate_login)
+    login_button = tk.Button(login_frame, text="Connect", command=send_validate_login)
     login_button.grid(row=2, columnspan=2, padx=10, pady=10)
-    url_entry.bind("<Return>", validate_login)
-    port_entry.bind("<Return>", validate_login)
+    url_entry.bind("<Return>", send_validate_login)
+    port_entry.bind("<Return>", send_validate_login)
     
 
 
@@ -296,6 +299,7 @@ if __name__ == "__main__":
     # Place the menu bar at the top of the window
     root.config(menu=menu_bar)
     
+    root.bind("<<ReceiveLogin>>", receive_validate_login)
     #create timer
     root.after(10, timer_trigger)
     

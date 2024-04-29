@@ -5,7 +5,8 @@ import sys
 import os
 import tqdm
 import queue
-
+import tkinter as tk
+from folder import *
 
 TRACKER_IP = ''
 TRACKER_PORT = None
@@ -13,7 +14,7 @@ MY_IP = socket.gethostbyname(socket.gethostname())
 PIECE_SIZE = 2 ** 20
 FORMAT = 'utf-8'
 MAX_LISTEN = 100
-# SHARE_PATH = "./share/"
+SHARE_PATH = "./share/"
 DOWNLOAD_PATH = "./download/"
 
 class Peer:
@@ -562,7 +563,7 @@ class Peer:
                 break
             
             
-    def run(self, tk_to_peer_q:queue.Queue, peer_to_tk_q:queue.Queue) -> None: #similar to send, wait for a command
+    def run(self, gui:tk.Tk, tk_to_peer_q:queue.Queue, peer_to_tk_q:queue.Queue) -> None: #similar to send, wait for a command
         q = queue.Queue()
         while True:
             message = tk_to_peer_q.get() #block here
@@ -603,6 +604,8 @@ class Peer:
                     #     client_socket, addr = self.server_socket.accept()
                     threading.Thread(target=self.accept_connections, daemon=True).start()
                 peer_to_tk_q.put(result)
+                gui.event_generate("<<ReceiveLogin>>")
+                
             elif message == "CONSOLE":
                 message = tk_to_peer_q.get() #block here
                 self.sen_process (data=message, q=q)
