@@ -604,31 +604,61 @@ class Peer:
                     #     client_socket, addr = self.server_socket.accept()
                     threading.Thread(target=self.accept_connections, daemon=True).start()
                 peer_to_tk_q.put(result)
-                gui.event_generate("<<ReceiveLogin>>")
+                gui.event_generate("<<ReceiveLogin>>", when="tail")
                 
             elif message == "CONSOLE":
                 message = tk_to_peer_q.get() #block here
                 self.sen_process (data=message, q=q)
                 response = q.get(timeout=5)
                 peer_to_tk_q.put(response)
+                
             elif message == "GET LIST":
                 self.sen_process (data="list", q=q)
-                response = q.get(timeout=5)
-                peer_to_tk_q.put(response)
-            elif message == "UPLOAD":
-                message = tk_to_peer_q.get()
-                print (message)
-                self.sen_process (data=message, q=q)
-                response = q.get(timeout=5)
+                reponse_list = self.request_file_list()
+                peer_to_tk_q.put(reponse_list)
+                gui.event_generate("<<UpdateList>>", when="tail")
+                
+            elif message == "UPLOAD FOLDER":
+                new_folder = tk_to_peer_q.get()
+                self.upload_folder(new_folder)
+                reponse_list = self.request_file_list()
+                peer_to_tk_q.put(reponse_list)
+                gui.event_generate("<<UpdateList>>", when="tail")
+                
+            elif message == "UPLOAD FILE":
+                new_file = tk_to_peer_q.get()
+                self.upload_file(new_file)
+                reponse_list = self.request_file_list()
+                peer_to_tk_q.put(reponse_list)
+                gui.event_generate("<<UpdateList>>", when="tail")
+                
             elif message == "DOWNLOAD":
                 message = tk_to_peer_q.get()
                 print (message)
                 self.sen_process (data=message, q=q)
                 response = q.get(timeout=5)
+                
             else:
                 pass
             
+    def request_file_list(self)->list: #TODO: Trả về list gồm các file và folder cùng tình trạng đã tải về hay chưa tải về trên peer
+        #Downloaded, '', Downloading
+        return self.folder_list
+    def update_file_list(self)->None:
+        pass
     
+    def upload_folder(self, folder: Folder)->None: #TODO: Gửi folder lên tracker
+        pass
+    
+    def upload_file (self, file: File)->None: #TODO: GỬI FILE
+        pass
+    
+    def request_download_file(file_name: str, hash: str)->None:
+        pass
+    
+    def request_download_folder(folder_name:str)->None:
+        pass
+
     def download_file(self, file_name, part_data):
         peer_info = self.request_peerS_info(file_name)
         # print(peer_info)
