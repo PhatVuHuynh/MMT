@@ -1,6 +1,6 @@
 import socket, math
 import json, hashlib
-import threading
+import threading, queue
 import sys
 import os
 import tqdm
@@ -13,6 +13,8 @@ MY_IP = socket.gethostbyname(socket.gethostname())
 PIECE_SIZE = 2 ** 20
 FORMAT = 'utf-8'
 MAX_LISTEN = 100
+SHARE_PATH = "./share/"
+DOWNLOAD_PATH = "./download/"
 
 class Peer:
     # init peer
@@ -39,7 +41,7 @@ class Peer:
         self.sizes = sizes
         
         # connect to tracker
-        if (tracker_host is not None) and (tracker_port is not None):
+        if (tracker_host is not None) or (tracker_port is not None):
             try: 
                 self.tracker_port = int(tracker_port)
             except ValueError:
@@ -48,7 +50,24 @@ class Peer:
             flag = self.connect_tracker(tracker_host=self.tracker_host, tracker_port=self.tracker_port)
             if(flag):
                 self.register_with_tracker()
+            
+                if(os.path.exists(SHARE_PATH) == False):
+                    os.mkdir(SHARE_PATH)
+                else:
+                    metainfo = self.create_metainfo(SHARE_PATH)
+                    
+                    # print(metainfo)
+
+                    message = json.dumps({'command': 'upload', 'metainfo': metainfo}).encode()
+                    # print(message)
+                    self.client_to_tracker.send(message)
+
+                    response = self.client_to_tracker.recv(1024).decode()
+                    print(response)
                 
+                if(os.path.exists(DOWNLOAD_PATH) == False):
+                    os.mkdir(DOWNLOAD_PATH)
+            
                 # socket to connect other peer
                 self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.server_socket.bind((self.my_ip, self.my_port))
@@ -57,6 +76,10 @@ class Peer:
                 # while True:   
                 #     client_socket, addr = self.server_socket.accept()
                 threading.Thread(target=self.accept_connections, daemon=False).start()
+
+        
+        self.part_data_lock = threading.Lock()
+        
 
     def get_tracker_host(self):
         return self.tracker_host
@@ -76,12 +99,15 @@ class Peer:
     def connect_tracker(self, tracker_host, tracker_port ):
         try:
             self.client_to_tracker = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            print(tracker_host)
-            print(tracker_port)
+            # print(self.tracker_host)
+            # print(self.tracker_port)
             self.client_to_tracker.connect((tracker_host, tracker_port))
             print("Connect to tracker successfully.")
             return True
-        except:
+        except Exception as e:
+            print (tracker_host)
+            print (tracker_port)
+            print (e)
             print("Can't connect to tracker")
             return False
 
@@ -95,6 +121,7 @@ class Peer:
             'hashes': self.hashes
         })
         self.client_to_tracker.send(message.encode())
+        self.client_to_tracker.recv(PIECE_SIZE)
 
     #Tạo tổng hash của file_name
     def create_hash_file(self, file_name):
@@ -142,23 +169,6 @@ class Peer:
             print("Failed to decode JSON from response")
             return None
 
-    # def request_peer_info(self, filename, ip, port):
-    #     message = json.dumps({'command': 'DOWNLOAD', 
-    #                                   'file': filename,
-    #                                   'ip': ip,
-    #                                   'port': port
-    #                                 }).encode()
-    #     self.client_to_tracker.send(message)
-    #     response = self.client_to_tracker.recv(PIECE_SIZE)
-    #     if not response:
-    #         print(f"No data received from {ip}, {port}")
-    #         return None
-    #     try:
-    #         return json.loads(response.decode())
-    #     except json.JSONDecodeError:
-    #         print("Failed to decode JSON from response")
-    #         return None
-
     # receive file (dữ liệu nhận ghi vào filename)
     def download_piece(self, ip_sender, port_sender, filename, start, end, part_data):
         try:
@@ -178,7 +188,8 @@ class Peer:
             # print(start, " ", end)
 
             # Sending filename, start, and end as a single message separated by a special character
-            message = f"{filename}:{start}:{end}"
+            message = f"{filename}*{start}*{end}"
+            # print(message)
             s.send(message.encode())
 
             # Await confirmation before continuing
@@ -217,6 +228,7 @@ class Peer:
 
             with self.part_data_lock:
                 part_data.append((start, file_bytes))
+                s.send("done".encode())
 
             # file.write(file_bytes)
 
@@ -251,8 +263,9 @@ class Peer:
             # print(type(start))
 
             data = client_socket.recv(PIECE_SIZE).decode()
+            # print(data)
             if data:
-                parts = data.split(':')  # Split the received data by ':'
+                parts = data.split('*')  # Split the received data by ':'
                 if len(parts) == 3:
                     filename, start_str, end_str = parts
                     print(f"Filename: {filename}")
@@ -268,41 +281,197 @@ class Peer:
             else:
                 print("No data received.")
 
-            # print(filename)
-            # print(self.files)
-            if filename in self.files:
+            #######
+            #NEED TO DEBUG
+            #######
+            print(self.files)
+            for f in self.files:
+                # print(f)
+                # if filename in f:
+                # if(filename)
+                if f.endswith(filename):
                 # file_size = os.path.getsize(filename)
                 # client_socket.sendall(f"{filename:<PIECE_SIZE}".encode())
                 # client_socket.sendall(f"{file_size:<PIECE_SIZE}".encode())
-                with open(filename, 'rb') as file:
-                    file.seek(start)
-                    numbytes = end - start
-                    data = file.read(numbytes)
-                    # print(data)
-                    client_socket.sendall(data)
-                    # print("end")
-                    client_socket.send(b"<END>")
-                    # print("end")
-                file.close()
+                    # path = os.path.join(SHARE_PATH, f)
+                    print(f)
+                    with open(f, 'rb') as file:
+                        file.seek(start)
+                        numbytes = end - start
+                        data = file.read(numbytes)
+                        # print(data)
+                        client_socket.sendall(data)
+                        # print("end")
+                        client_socket.send(b"<END>")
+                        if(client_socket.recv(PIECE_SIZE).decode() == "done"):
+                            pass
+                        else:
+                            print("data wrong")
+                    file.close()
 
         except Exception as e:
             print(f"Error: {e}")
         finally:
             client_socket.close()
 
-    def sen_process(self, data):
+    def normalize_path(self, path):
+        return os.path.normpath(path).replace('\\', "/")
+
+    def create_metainfo(self, file_paths):
+        metainfo = []
+        files = []
+
+        file_paths = file_paths.split(",")
+
+        for file_path in file_paths:
+            # Check if the input path is a file or a directory
+            # file_path = self.normalize_path(file_path)
+            # print(file_path)
+            # print(SHARE_PATH)
+            if os.path.isdir(file_path):
+                # Multiple-file mode
+                temp_path = file_path
+                try:
+                    # print(1)
+                    if(temp_path.find(":") > -1):
+                        # print(2)
+                        temp_path = self.normalize_path(temp_path)
+                        slash_id = temp_path.rindex('/')
+
+                        temp_path = temp_path[slash_id + 1:]
+                except Exception as e:
+                    print(e)
+                sizes = []
+                pieces = []
+                hashes = []
+                
+                for root, _, filenames in os.walk(file_path):
+                    # print(root)
+                    # print(filenames)
+                    for filename in filenames:
+                        file_abs_path = os.path.join(root, filename)
+                        # print(file_abs_path)
+                        file_abs_path = self.normalize_path(file_abs_path)
+                        # file_abs_path.replace('\\', "/")
+                        
+                        file_rel_path = os.path.relpath(file_abs_path, file_path)
+                        file_rel_path = self.normalize_path(file_rel_path)
+                        # print(file_abs_path)
+                        # print(file_rel_path)
+
+                        try:
+                            # print(1)
+                            if(file_rel_path.find(":") > -1):
+                                # print(2)
+                                slash_id = file_rel_path.rindex('/')
+
+                                file_rel_path = file_rel_path[slash_id+1:]
+                        except Exception as e:
+                            print(e)
+                        
+                        file_size = os.path.getsize(file_abs_path)
+                        files.append(file_rel_path)
+                        sizes.append(file_size)
+                        hash = self.create_hash_file(file_abs_path)
+                        hashes.append(hash)
+
+                        self.files.append(file_abs_path)
+                        # print(self.files)
+                        self.sizes.append(file_size)
+                        self.hashes.append(hash)
+
+                        pieces.append(math.ceil(file_size/PIECE_SIZE))
+                
+                metainfo.append({
+                    'name': temp_path if temp_path != SHARE_PATH else '',
+                    'is_folder': True,
+                    'files': files, #['b.txt','temp.png']
+                    'sizes': sizes, #[23,1500]
+                    'num_pieces': pieces, #[1,2]
+                    'hashes': hashes 
+                })
+            
+            elif os.path.isfile(file_path):
+                file_path = self.normalize_path(file_path)
+
+                self.files.append(file_path)
+                
+                size = os.path.getsize(file_path)
+                files.append(('', size))
+                hash = self.create_hash_file(file_path)
+
+                try:
+                    # print(1)
+                    if(file_path.find(":") > -1):
+                        file_path = self.normalize_path(file_path)
+                        # print(2)
+                        slash_id = file_path.rindex('/')
+
+                        file_path = file_path[slash_id+1:]
+                except Exception as e:
+                    print(e)
+                
+                
+                self.sizes.append(size)
+                self.hashes.append(hash)
+
+                num_piece = math.ceil(size/PIECE_SIZE)
+                
+                metainfo.append({
+                    'name': '',
+                    'is_folder': False,
+                    'files': file_path,
+                    'sizes': size,
+                    'num_pieces': num_piece,
+                    'hashes': hash
+                })
+
+            else:
+                # invalid = True
+                print("Invalid input path.")
+                return
+
+            print(self.files)
+            files = []
+        return metainfo
+
+    def sen_process(self, data, q):
         # print(data)
-        data = data.split(" ")
-        cmd = data[0].strip().lower()
+        # data = data.split(" ")
+        # cmd = data[0].strip().lower()
+        global_response = ""
+        # data = data.split(" ")
+        cmd_id = data.find(" ")
+
+        if(cmd_id < 0):
+            cmd = data
+        else:
+            cmd = data[:cmd_id].strip().lower()
+        
+        remain_data = data[cmd_id + 1:]
         if cmd == "help":
-            self.client_to_tracker.send(cmd.encode(FORMAT))
+            message = json.dumps({'command': 'help'})
+            
+            self.client_to_tracker.send(message.encode())
+            
             res = self.client_to_tracker.recv(PIECE_SIZE).decode()
 
-            print(res)
+            # print(res)
+            # self.response = res
+            global_response = res
         elif cmd == "logout":
             # print("Disconnected from the server.")
-            self.client_to_tracker.send(cmd.encode(FORMAT))
-            print(self.client_to_tracker.recv(PIECE_SIZE).decode())
+            message = json.dumps({'command': 'logout'})
+            
+            self.client_to_tracker.send(message.encode())
+            
+            # print(1)
+            res = self.client_to_tracker.recv(PIECE_SIZE).decode()
+            # print(2)
+            # print(res)
+            # self.response = res
+            global_response = res
+            q.put(global_response)
             return
         elif cmd == "list":
             message = json.dumps({'command': 'list'})
@@ -313,95 +482,28 @@ class Peer:
             peer_list = json.loads(response)
             
             print(peer_list)
-            return peer_list
-        elif cmd == "upload":
-            file_paths = data[1]
-
-            file_paths = file_paths.split(",")
-
-            metainfo = []
-            files = []
-            invalid = False
+            # self.response = peer_list
+            global_response = peer_list
+            # print(peer_list)
             
-            for file_path in file_paths:
-                # Check if the input path is a file or a directory
-                if os.path.isdir(file_path):
-                    # Multiple-file mode
-                    
-                    sizes = []
-                    pieces = []
-                    hashes = []
-                    
-                    for root, _, filenames in os.walk(file_path):
-                        print(root)
-                        print(filenames)
-                        for filename in filenames:
-                            file_abs_path = os.path.join(root, filename)
-                            file_rel_path = os.path.relpath(file_abs_path, file_path)
-                            
-                            file_size = os.path.getsize(file_abs_path)
-                            files.append(file_rel_path)
-                            sizes.append(file_size)
-                            hash = self.create_hash_file(file_abs_path)
-                            hashes.append(hash)
-
-                            self.files.append(file_abs_path)
-                            self.sizes.append(file_size)
-                            self.hashes.append(hash)
-
-                            pieces.append(math.ceil(file_size/PIECE_SIZE))
-                    
-                    metainfo.append({
-                        'name': file_path,
-                        'is_folder': True,
-                        'files': files, #['b.txt','temp.png']
-                        'sizes': sizes, #[23,1500]
-                        'num_pieces': pieces, #[1,2]
-                        'hashes': hashes 
-                    })
-                
-                elif os.path.isfile(file_path):
-                    size = os.path.getsize(file_path)
-                    files.append(('', size))
-                    hash = self.create_hash_file(file_path)
-                    
-                    self.files.append(file_path)
-                    self.sizes.append(size)
-                    self.hashes.append(hash)
-
-                    num_piece = math.ceil(size/PIECE_SIZE)
-                    
-                    metainfo.append({
-                        'name': '',
-                        'is_folder': False,
-                        'files': file_path,
-                        'sizes': size,
-                        'num_pieces': num_piece,
-                        'hashes': hash
-                    })
-
-                else:
-                    invalid = True
-                    print("Invalid input path.")
-                    return
-
-                print(files)
-                files = []
-
-            if(invalid):
-                return
+        elif cmd == "upload":
+            file_paths = remain_data
+            print (file_paths)
+            metainfo = self.create_metainfo(file_paths)
             
             print(metainfo)
 
             message = json.dumps({'command': 'upload', 'metainfo': metainfo}).encode()
             print(message)
             self.client_to_tracker.send(message)
-
+            print (1)
             response = self.client_to_tracker.recv(1024).decode()
-            print(response)
+            
+            # self.response = response
+            global_response = response
             
         elif cmd == "download":
-            filename = data[1]
+            filename = remain_data
 
             # peerIp = data[2]
             # peerport = data[3]
@@ -410,11 +512,14 @@ class Peer:
             temp_list = []
 
             for file in filename:
-                if(file[-1:] == "\\"):
-                    if(os.path.exists(file) == False):
-                        os.mkdir(file)
+                if(file[-1:] == "/"):
+                    path = os.path.join(DOWNLOAD_PATH, file)
+                    # print(path)
+                    # print(os.path.exists(path))
+                    if(os.path.exists(path) == False):
+                        os.mkdir(path)
                     peer_req = self.request_peerS_info(file)
-                    print(peer_req) #in cac peer chua no
+                    # print(peer_req)
                     for p in peer_req['peers']:
                         temp_list.append(p['file'])
                     filename.remove(file)
@@ -422,23 +527,36 @@ class Peer:
             for f in temp_list:
                 filename.append(f)                        
 
-            print(filename)
+            # print(filename)
 
             self.manage_downloads(filename)
+            # self.response = ""
+            global_response = ""
         else:
-            print("pass")
+            # self.response = "pass"
+            global_response = "pass"
             # self.client_to_tracker.send("pass".encode())
+        q.put(global_response)
 
     def sen(self):
         while True:
             data = input("> ")
             # data = data.split(" ")
 
-            thrSen = threading.Thread(target=self.sen_process, args=(data,))
+            # print("endloop")
+            q = queue.Queue()
+            thrSen = threading.Thread(target=self.sen_process, args=(data, q))
             thrSen.start()
             # print("endloop")
+            # print(self.response)
+            answer = q.get()
+            print(answer)
+            if(answer == "Disconnected from the server."):
+                break
+            
             
     def run(self, tk_to_peer_q:queue.Queue, peer_to_tk_q:queue.Queue) -> None: #similar to send, wait for a command
+        q = queue.Queue()
         while True:
             message = tk_to_peer_q.get() #block here
             print (message)
@@ -447,10 +565,28 @@ class Peer:
             
             elif message == "CONNECT":
                 tracker_host, tracker_port = tk_to_peer_q.get()
+                
                 result = self.connect_tracker(tracker_host=tracker_host, tracker_port=tracker_port)
                 if(result):
                     self.register_with_tracker()
+            
+                    if(os.path.exists(SHARE_PATH) == False):
+                        os.mkdir(SHARE_PATH)
+                    else:
+                        metainfo = self.create_metainfo(SHARE_PATH)
+                        
+                        # print(metainfo)
+
+                        message = json.dumps({'command': 'upload', 'metainfo': metainfo}).encode()
+                        # print(message)
+                        self.client_to_tracker.send(message)
+
+                        response = self.client_to_tracker.recv(1024).decode()
+                        print(response)
                     
+                    if(os.path.exists(DOWNLOAD_PATH) == False):
+                        os.mkdir(DOWNLOAD_PATH)
+                
                     # socket to connect other peer
                     self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     self.server_socket.bind((self.my_ip, self.my_port))
@@ -458,31 +594,37 @@ class Peer:
                     
                     # while True:   
                     #     client_socket, addr = self.server_socket.accept()
-                    threading.Thread(target=self.accept_connections,  daemon=False).start() #TODO: Terminate this thread
-
+                    threading.Thread(target=self.accept_connections, daemon=True).start()
                 peer_to_tk_q.put(result)
             elif message == "CONSOLE":
                 message = tk_to_peer_q.get() #block here
-                response = self.sen_process (data=message)
+                self.sen_process (data=message, q=q)
+                response = q.get(timeout=5)
                 peer_to_tk_q.put(response)
             elif message == "GET LIST":
-                response = self.sen_process (data="list")
+                self.sen_process (data="list", q=q)
+                response = q.get(timeout=5)
                 peer_to_tk_q.put(response)
             elif message == "UPLOAD":
                 message = tk_to_peer_q.get()
-                self.sen_process (data=message)
+                print (message)
+                self.sen_process (data=message, q=q)
+                response = q.get(timeout=5)
             elif message == "DOWNLOAD":
                 message = tk_to_peer_q.get()
                 print (message)
-                self.sen_process (data=message)
+                self.sen_process (data=message, q=q)
+                response = q.get(timeout=5)
             else:
                 pass
+            
+    
     def download_file(self, file_name, part_data):
         peer_info = self.request_peerS_info(file_name)
         # print(peer_info)
-        if peer_info:
+        if peer_info['peers']:
             size, pieces, hash = 0,0,''
-            print(peer_info)
+            # print(peer_info)
             for p in peer_info['peers']:
                 print(p['ip'], " ", p['port'], " ", p['file'], " ", p['size'], p['pieces'])
                 size = p['size']
@@ -581,8 +723,11 @@ class Peer:
             part_data.sort(key=lambda x: x[0])
 
             data = b"".join([part[1] for part in part_data])
-
+            # print(data)
             sum_hash = self.create_hash_data(data)
+            
+            print(sum_hash)
+            print(hash)
 
             # with part_data_lock:
             #     for i, result in enumerate(part_data):
@@ -590,14 +735,36 @@ class Peer:
             
             try:
                 if sum_hash == hash:
-                    file = open(file_name, "wb")
+                    with self.part_data_lock:
+                        check = input(f"Do you want to rename {file_name}? Enter \"yes\" to rename, else press 'enter' again:")
+                        if(check.strip().lower() == "yes"):
+                            new_filename = input("Please enter other name:")
+                            try:
+                                slash_id = file_name.rindex('/')
+
+                                file_name = file_name[:slash_id + 1] + new_filename
+                            except:
+                                file_name = new_filename
+                        
+                    path = os.path.join(DOWNLOAD_PATH, file_name)
+                    # path = self.normalize_path(path)
+                    # print(os.path.isfile(path))
+                    # print(os.path.dirname(path))
+
+                    if(os.path.exists(os.path.dirname(path)) == False):
+                        os.mkdir(os.path.dirname(path))
+                    
+                    file = open(path, "wb")
+                    
                     file.write(data)
 
                     file.close()
+                    print(f"File {file_name} has been downloaded.")
+                else:
+                    print(f"Hash difference.")
             except Exception as e:
                 print(e)
             
-            print(f"File {file_name} has been downloaded.")
         else:
             print("No peer found with the requested file.")
 
@@ -614,7 +781,7 @@ class Peer:
         for thread in threads:
             thread.join()
 
-        print(f"All files have been downloaded.")
+        print(f"Download finish.")
     
 if __name__ == "__main__":
     TRACKER_IP = input("Please enter Tracker's IP you want to connect:")
@@ -637,3 +804,6 @@ if __name__ == "__main__":
     #     peer.manage_downloads(requested_files)
 
     peer.sen()
+    print("end")
+    # sys.exit()
+    

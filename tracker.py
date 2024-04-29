@@ -70,14 +70,14 @@ class Tracker:
                     print(data)
                     filename = data['file']
                     # print(filename[-2:])
-                    if(filename[-1:] == "\\"):
+                    if(filename[-1:] == "/"):
                         available_peers = []
                         for peer_addr, peer_info in self.peers.items():
                             for file in peer_info['files']:
                                 print(file)
                                 # a="a\\sda"
                                 # a.startswith()
-                                print(file.startswith(filename))
+                                # print(file.startswith(filename))
                                 if file.startswith(filename) :
                                     available_peers.append(
                                     {
@@ -133,6 +133,7 @@ class Tracker:
                                     self.peers[addr]['pieces'].append(metainfo['num_pieces'][metainfo['files'].index(file)])
                                     print(1)
                                     file = os.path.join(metainfo['name'], file)
+                                    file = os.path.normpath(file).replace("\\", "/")
                                     # print(1)
                                     self.peers[addr]['files'].append(file)
                                     print(file)
@@ -167,13 +168,21 @@ class Tracker:
                     client_socket.send(response.encode())
 
                 elif command == 'logout':
+                    print(1)
                     try:
+                        print(2)
                         self.peers.pop(addr)
+                        print(3)
                         response = "Disconnected from the server."
+                        print(5)
+                        client_socket.send(response.encode())
+                        print(6)
+                        return
                     except:
+                        print(4)
                         response = "There is an error while logging out."
                     
-                    client_socket.send(response.encode())
+                    
                 else:
                     pass
         finally:

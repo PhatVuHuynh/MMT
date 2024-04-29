@@ -34,7 +34,6 @@ def upload_file(): #TODO
         root.after(100, update_list)
 
 def update_list():
-    
     tk_to_peer_q.put("GET LIST")
     file_list = peer_to_tk_q.get()
     for item in tree.get_children():
@@ -248,17 +247,18 @@ if __name__ == "__main__":
     #config the tabs
     tree = ttk.Treeview(treeview)
     # tree['columns'] = ('Size', 'Type', 'Status')  # Add a new column for status
-    tree['columns'] = ('Status',)
-    tree.column('#0', width=270, minwidth=270, stretch=tk.NO)
-    # tree.column('Size', width=150, minwidth=150, stretch=tk.NO)
-    # tree.column('Type', width=150, minwidth=150, stretch=tk.NO)
-    tree.column('Status', width=100, minwidth=100, stretch=tk.NO)  # Adjust the width as needed
-
+    tree['columns'] = ('Hash', 'Status', 'Type','Path')
+    tree.column('#0', width=150, minwidth=150, stretch=tk.NO)
+    tree.column('Hash', width=200, minwidth=200, stretch=tk.NO)
+    tree.column('Status', width=120, minwidth=120, stretch=tk.NO)  # Adjust the width as needed
+    tree.column('Type', width=100, minwidth=100, stretch=tk.NO)
+    tree.column('Path', width=270, minwidth=270, stretch=tk.NO)
+    
     tree.heading('#0', text='Name', anchor=tk.W)
-    # tree.heading('Size', text='Size', anchor=tk.W)
-    # tree.heading('Type', text='Type', anchor=tk.W)
+    tree.heading('Hash', text='Hash', anchor=tk.W)
     tree.heading('Status', text='Status', anchor=tk.W)  # Add a heading for the new column
-
+    tree.heading('Type', text='Type', anchor=tk.W)
+    tree.heading('Path', text='Path', anchor=tk.W)
     # folder1 = tree.insert('', 'end', text='Folder 1', values=('10 KB', 'Folder', 'Downloading'))
     # sub_item1 = tree.insert(folder1, 'end', text='File 1', values=('2 KB', 'Text File', 'Completed'))
     # sub_item2 = tree.insert(folder1, 'end', text='File 2', values=('3 KB', 'Image File', 'In Progress'))
