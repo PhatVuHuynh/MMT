@@ -6,6 +6,7 @@ class InvalidPathError(Exception):
 class File:
     def __init__(self, path, file_hash, name = None, parent_folder=None):
         path = path.replace("\\", "/")
+        if not os.path.exists(path): raise InvalidPathError(f"The new path \"{path}\" is not a valid path.")
         if name is None: self.name = os.path.basename(path)
         else:            self.name = name
         
@@ -21,19 +22,20 @@ class File:
     def set_path(self, new_path):
         # Normalize the new path and ensure it ends with a slash
         new_path = new_path.replace("\\", "/")
+        # if not os.path.exists(new_path): raise InvalidPathError(f"The new path \"{new_path}\" is not a valid path.")
         new_path = os.path.join(os.path.normpath(new_path), '')
         
         # Update the file's path
         self.path = os.path.join(new_path, self.name)
         self.path = self.path.replace("\\", "/")
         global test
-        if test: print (f"The file name \"{self.name}\" now has the paht \"{self.path}\"")
+        if test: print (f"The file name \"{self.name}\" now has the path \"{self.path}\"")
         
 class Folder:
     def __init__(self, path, name = None, parent_folder=None):
         path = path.replace("\\", "/")
         if not os.path.isdir(path):
-            raise InvalidPathError(f"The path {path} is not a valid directory.")
+            raise InvalidPathError(f"The path \"{path}\" is not a valid directory.")
         
         if name is None: self.name = os.path.basename(os.path.normpath(path))
         else:            self.name = name
@@ -84,6 +86,7 @@ class Folder:
     def set_path(self, new_path):
         # Normalize the new path and ensure it ends with a slash
         new_path = new_path.replace("\\", "/")
+        # if not os.path.isdir(new_path): raise InvalidPathError(f"The path \"{new_path}\" is not a valid directory.")
         new_path = os.path.join(os.path.normpath(new_path), '')
         # Update the folder's path
         self.path = os.path.join(new_path, self.name)
