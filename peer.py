@@ -192,61 +192,71 @@ class Peer:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.connect((ip_sender, port_sender))
 
-            # s.send(filename.encode())
-
-            # s.recv(PIECE_SIZE)
-
-            # s.send(str(start).encode())
-
-            # s.recv(PIECE_SIZE)
-
-            # s.send(str(end).encode())
-
-            # print(start, " ", end)
-
-            # Sending filename, start, and end as a single message separated by a special character
-            message = f"{filename}*{start}*{end}"
-            # print(message)
+            
+            message = f"{filename}:{start}:{end}"
             s.send(message.encode())
 
             # Await confirmation before continuing
-            response = s.recv(PIECE_SIZE).decode()
+            response = s.recv(1024).decode()
             if response == "done":
                 print(f"Start: {start}, End: {end} sent successfully.")
             else:
                 print("Failed to send data correctly.")
 
-            # received_file_name = s.recv(PIECE_SIZE).decode()
-            # print(received_file_name," ")
-
-            # file_size = s.recv(PIECE_SIZE).decode()
-            # print(file_size," ")
-
-            # file = open(received_file_name, "wb")
-
-            file_bytes = b""
-
+            # file_bytes = b""
+            arr = []
             done = False
-
-            progress = tqdm.tqdm(unit="B", unit_scale=True, 
-                                 unit_divisor=1000, 
-                                 total=int(end-start))
+            progress = tqdm.tqdm(unit="B", unit_scale=True, unit_divisor=1000, total=int(end-start))
             
+            # start_time = time.time()
+            
+            # Nhận dữ liệu từ sender
+            buffer_size = 1024*1024
             while not done:
-                data = s.recv(PIECE_SIZE)
-                # print(data)
+                # part_bytes = b""
+                data = s.recv(buffer_size)
                 if data[-5:] == b"<END>":
                     done = True
-                    file_bytes += data[:-5]
+                    # part_bytes = data[:-5]
+                    arr.append(data[:-5])
                 else:
-                    file_bytes += data
-                progress.update(PIECE_SIZE)
-                # input("wait")
+                    # part_bytes = data
+                    arr.append(data)
+                # arr.append(part_bytes)
+                progress.update(len(data))
+            
+            # for file_data in arr:
+            #     file_bytes += file_data
+            print(f"start merge piece")
+            
+            file_bytes = b"".join(part for part in arr)
+            
+            print("end merge piece")
+            # end_time = time.time()
+            
+            # # Thêm vào heap
+            # addr = (ip_sender, port_sender)
+            # speed = (end-start)/(end_time-start_time) #byte/second
+            # isExisted = False
 
+            # for mem in self.download_rates:
+            #     if addr == mem[1]:
+            #         isExisted = True
+            #         if speed > abs(mem[0]):
+            #             self.download_rates.remove((mem[0], mem[1]))
+            #             heapq.heappush(self.download_rates, (-speed, addr))
+            #             isExisted = True
+            # if isExisted == False:
+            #     heapq.heappush(self.download_rates, (-speed, addr))
+            
+            # if len(self.download_rates) >= 4:
+            #     heapq.heappop(self.download_rates)
+
+            # Ghi dữ liệu piece
+            print('start add arr')
             with self.part_data_lock:
                 part_data.append((start, file_bytes))
-                s.send("done".encode())
-
+            print('end add arr')
             # file.write(file_bytes)
 
         except Exception as e:
