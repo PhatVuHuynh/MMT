@@ -653,10 +653,10 @@ class Peer:
     def upload_file (self, file: File)->None: #TODO: GỬI FILE
         pass
     
-    def request_download_file(file_name: str, hash: str)->None:
+    def request_download_file(self, file_name: str, hash: str)->None:
         pass
     
-    def request_download_folder(folder_name:str)->None:
+    def request_download_folder(self, folder_name:str)->None:
         pass
 
     def download_file(self, file_name, part_data):
