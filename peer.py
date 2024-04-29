@@ -51,19 +51,19 @@ class Peer:
             if(flag):
                 self.register_with_tracker()
             
-                if(os.path.exists(SHARE_PATH) == False):
-                    os.mkdir(SHARE_PATH)
-                else:
-                    metainfo = self.create_metainfo(SHARE_PATH)
+                # if(os.path.exists(SHARE_PATH) == False):
+                #     os.mkdir(SHARE_PATH)
+                # else:
+                #     metainfo = self.create_metainfo(SHARE_PATH)
                     
-                    # print(metainfo)
+                #     # print(metainfo)
 
-                    message = json.dumps({'command': 'upload', 'metainfo': metainfo}).encode()
-                    # print(message)
-                    self.client_to_tracker.send(message)
+                #     message = json.dumps({'command': 'upload', 'metainfo': metainfo}).encode()
+                #     # print(message)
+                #     self.client_to_tracker.send(message)
 
-                    response = self.client_to_tracker.recv(1024).decode()
-                    print(response)
+                #     response = self.client_to_tracker.recv(1024).decode()
+                #     print(response)
                 
                 if(os.path.exists(DOWNLOAD_PATH) == False):
                     os.mkdir(DOWNLOAD_PATH)
@@ -577,19 +577,19 @@ class Peer:
                 if(result):
                     self.register_with_tracker()
             
-                    if(os.path.exists(SHARE_PATH) == False):
-                        os.mkdir(SHARE_PATH)
-                    else:
-                        metainfo = self.create_metainfo(SHARE_PATH)
+                    # if(os.path.exists(SHARE_PATH) == False):
+                    #     os.mkdir(SHARE_PATH)
+                    # else:
+                    #     metainfo = self.create_metainfo(SHARE_PATH)
                         
-                        # print(metainfo)
+                    #     # print(metainfo)
 
-                        message = json.dumps({'command': 'upload', 'metainfo': metainfo}).encode()
-                        # print(message)
-                        self.client_to_tracker.send(message)
+                    #     message = json.dumps({'command': 'upload', 'metainfo': metainfo}).encode()
+                    #     # print(message)
+                    #     self.client_to_tracker.send(message)
 
-                        response = self.client_to_tracker.recv(1024).decode()
-                        print(response)
+                    #     response = self.client_to_tracker.recv(1024).decode()
+                    #     print(response)
                     
                     if(os.path.exists(DOWNLOAD_PATH) == False):
                         os.mkdir(DOWNLOAD_PATH)
