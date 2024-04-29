@@ -225,6 +225,10 @@ class Folder:
         for child_folder in self.child_folders:
             all_files.extend(child_folder.get_all_files())
         return all_files
+    def get_all_file_names (self):
+        all_files = self.get_all_files()
+        file_names = [file.name for file in all_files]
+        return file_names
 
     def detach_parent(self):
         if self.parent_folder:
