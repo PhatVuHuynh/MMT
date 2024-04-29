@@ -219,7 +219,12 @@ class Folder:
                     return found_file
 
             return None
-
+    def get_all_files(self):
+        all_files = []
+        all_files.extend(self.files)
+        for child_folder in self.child_folders:
+            all_files.extend(child_folder.get_all_files())
+        return all_files
 
     def detach_parent(self):
         if self.parent_folder:
@@ -261,8 +266,10 @@ if __name__ == "__main__":
     my_folder = Folder(path)
     # my_folder.set_path("C:/")
     my_folder.remove_path()
-    print(tree(my_folder))
-
+    # print(tree(my_folder))
+    all_files = my_folder.get_all_files()
+    file_names = [file.name for file in all_files]
+    print (file_names)
     
     # file = my_folder.get_subfolder("download/peer_data/New folder/New folder/New folder/New folder/")
     # if file: print(file.path)
