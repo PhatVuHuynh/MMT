@@ -87,14 +87,14 @@ class Folder:
             # Add folders
             for dir_name in dirs:
                 folder_path = os.path.join(root, dir_name)
-                folder = Folder(folder_path, parent_folder=self)
+                folder = Folder(folder_path, parent_folder=self, status=self.status)
                 self.add_folder(folder)
             
             # Add files
             for file_name in files:
                 file_path = os.path.join(root, file_name)
                 file_hash = self._calculate_hash(file_path)
-                file = File(file_path, file_hash=file_hash,  name=file_name, parent_folder=self)
+                file = File(file_path, file_hash=file_hash,  name=file_name, parent_folder=self, status=self.status)
                 self.add_file(file)
 
     def add_file(self, file):
