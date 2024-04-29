@@ -26,7 +26,7 @@ class File:
         self.parent_folder = parent_folder
         
         global test
-        if test: print (f"CREATING file name \"{self.name}\" with the path \"{self.path}\"")
+        if test: print (f"CREATING file name \"{self.name}\" with the path \"{self.path}\" in parent \"{self.parent_folder.name}\"")
     
     def remove_path(self):
         self.path = None
@@ -72,6 +72,10 @@ class Folder:
     
     def _initialize_folder_structure(self):
         for root, dirs, files in os.walk(self.path):
+            # Skip files if the current root is not the folder's path
+            if os.path.normpath(root) != os.path.normpath(self.path):
+                continue
+
             # Add folders
             for dir_name in dirs:
                 folder_path = os.path.join(root, dir_name)
@@ -160,8 +164,8 @@ def print_tree(folder:Folder, indent=''):
 
 test = False
 if __name__ == "__main__":
-    # test = True
-    path = "C:/Users/tuankiet/Desktop/MMT/"
+    test = True
+    path = "C:/Users/tuankiet/Desktop/parent"
     my_folder = Folder(path)
     # my_folder.set_path("C:/")
     print_tree(my_folder)
