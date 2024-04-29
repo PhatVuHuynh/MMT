@@ -6,6 +6,7 @@ class InvalidPathError(Exception):
 class File:
     def __init__(self, path, file_hash, name = None, parent_folder=None):
         path = path.replace("\\", "/")
+        if not os.path.exists(path): raise InvalidPathError(f"The new path \"{path}\" is not a valid path.")
         if name is None: self.name = os.path.basename(path)
         else:            self.name = name
         
@@ -14,13 +15,27 @@ class File:
         self.parent_folder = parent_folder
         
         global test
-        if test: print (f"Creating file NAME: {self.name} with the FULL PATH: {self.path}")
-
+        if test: print (f"CREATING file name \"{self.name}\" with the path \"{self.path}\"")
+    def remove_path(self):
+        self.path = None
+    
+    def set_path(self, new_path):
+        # Normalize the new path and ensure it ends with a slash
+        new_path = new_path.replace("\\", "/")
+        # if not os.path.exists(new_path): raise InvalidPathError(f"The new path \"{new_path}\" is not a valid path.")
+        new_path = os.path.join(os.path.normpath(new_path), '')
+        
+        # Update the file's path
+        self.path = os.path.join(new_path, self.name)
+        self.path = self.path.replace("\\", "/")
+        global test
+        if test: print (f"The file name \"{self.name}\" now has the path \"{self.path}\"")
+        
 class Folder:
     def __init__(self, path, name = None, parent_folder=None):
         path = path.replace("\\", "/")
         if not os.path.isdir(path):
-            raise InvalidPathError(f"The path {path} is not a valid directory.")
+            raise InvalidPathError(f"The path \"{path}\" is not a valid directory.")
         
         if name is None: self.name = os.path.basename(os.path.normpath(path))
         else:            self.name = name
@@ -30,7 +45,7 @@ class Folder:
         self.child_folders = []
         self.files = []
         global test
-        if test: print (f"Creating folder NAME: {self.name} with the FULL PATH: {self.path}")
+        if test: print (f"CREATING folder name \"{self.name}\" with the path \"{self.path}\"")
         self._initialize_folder_structure()
     
     def _initialize_folder_structure(self):
@@ -58,8 +73,36 @@ class Folder:
         folder.parent_folder = self
         self.child_folders.append(folder)
 
+    def remove_path(self):
+        # Set the folder's path to None
+        self.path = None
+        # Set the path of each file in this folder to None
+        for file in self.files:
+            file.remove_path()
+        # Recursively set the path of each child folder to None
+        for folder in self.child_folders:
+            folder.remove_path()
     
-
+    def set_path(self, new_path):
+        # Normalize the new path and ensure it ends with a slash
+        new_path = new_path.replace("\\", "/")
+        # if not os.path.isdir(new_path): raise InvalidPathError(f"The path \"{new_path}\" is not a valid directory.")
+        new_path = os.path.join(os.path.normpath(new_path), '')
+        # Update the folder's path
+        self.path = os.path.join(new_path, self.name)
+        self.path = self.path.replace("\\", "/")
+        
+        global test
+        if test: print (f"The folder name \"{self.name}\" now has the path \"{self.path}\"")
+        
+        # Update the paths of all files in this folder
+        for file in self.files:
+            file.set_path(self.path)
+        
+        # Recursively update the paths of all child folders
+        for folder in self.child_folders:
+            folder.set_path(self.path)
+    
     def _calculate_hash(self, file_path):
         # Placeholder for hash calculation logic
         return "hash_placeholder"
@@ -68,8 +111,9 @@ test = False
 if __name__ == "__main__":
     test = True
     # my_folder = Folder(r"C:\Users\tuankiet\Google Drive\Study in HCMUT\232\Software Engineering")
-    path = "C:/Users/tuankiet/Desktop/MMT/"
+    path = "C:/Users/tuankiet/Desktop/MMT/download"
     
     print(path)
     my_folder = Folder(path)
+    my_folder.set_path("C:/")
 
