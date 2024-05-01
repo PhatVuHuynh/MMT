@@ -45,17 +45,20 @@ class Tracker:
                     return
                 
                 # print(data)
+                # data = client_socket.recv(PIECE_SIZE)
                 if not data:
+                    print(f"Connection closed by {addr}")
                     break
+
                 data = json.loads(data.decode())
                 command = data['command']
 
                 if command == 'register':
 
-                    pieces = []
-                    for c in data['container']:
-                        temp = math.ceil(c.get_size()/PIECE_SIZE)
-                        c.set_pieces(temp)
+                    # pieces = []
+                    # for c in data['container']:
+                    #     temp = math.ceil(c.get_size()/PIECE_SIZE)
+                    #     c.set_pieces(temp)
 
                     self.peers[addr] = {
                         # 'folders': [],
@@ -363,11 +366,86 @@ class Tracker:
                         print(4)
                         response = "There is an error while logging out."
                     
-                    
+                elif command == "request again":
+                    print(data)
+                    filename = data['file']
+                    file_hash = data['hash']
+                    available_peers = []
+                    if(os.path.isabs(filename)):
+                        pass
+                    else:
+                        if(filename[-1:] == "/"):
+                            print("req fol")
+                            for peer_addr, peer_info in self.peers.items():
+                                for conts in peer_info['container']:
+                                    if(filename in conts.name):
+                                        file_list = conts.get_all_files()
+                                        
+                                    else:
+                                        if (isinstance(c, Folder)):
+                                            path = conts.get_subfolder(filename)
+                                            if(path is not None):
+                                                file_list = path.get_all_files()
+                                    
+                                    if file_list is not None:
+                                        for f in file_list:
+                                            available_peers.append(
+                                            {
+                                                'ip': peer_info['ip'],
+                                                'port': peer_info['port']
+                                                # 'file': f,
+                                            })
+                                        break
+                        else:
+                            print("req file")
+                            for peer_addr, peer_info in self.peers.items():
+                                for conts in peer_info['container']:
+                                    if(filename in conts.name):
+                                        if(file_hash == conts.file_hash):
+                                            available_peers.append(
+                                            {
+                                                'ip': peer_info['ip'],
+                                                'port': peer_info['port']
+                                                # 'file': conts,
+                                            })
+                                            break
+                                    else:
+                                        if(isinstance(conts, Folder)):
+                                            print(conts.name)
+                                            # print(conts.files[0].name)
+                                            path = conts.get_file(filename)
+                                            print("______")
+                                            print(path)
+                                            if(path is not None):
+                                                if(file_hash == path.file_hash):
+                                                    available_peers.append(
+                                                    {
+                                                        'ip': peer_info['ip'],
+                                                        'port': peer_info['port']
+                                                        # 'file': path,
+                                                        # 'hash': path.file_hash,
+                                                        # 'size': path.size,
+                                                        # 'pieces': path.pieces
+                                                    })
+                                                break
+                    print(available_peers)
+                    # response = json.dumps({"peers": available_peers}).encode()
+                    response = pickle.dumps({"peers": available_peers})
+                    client_socket.send(response)
                 else:
                     pass
+        except ConnectionResetError:
+            print(f"Connection was forcibly closed by {addr}")
+        except socket.error as e:
+            print(f"Socket error: {e}")
+        except Exception as e:
+            print(f"Error handling client {addr}: {e}")
         finally:
             client_socket.close()
+            # self.peers.pop(addr, None)  # Remove the peer from the dictionary
+            # print(f"Peer {addr} disconnected and removed.")
+            # for a, b in self.peers.items():
+            #     print(b['ip']," ",b['port'],end='\n')
 
 if __name__ == "__main__":
     tracker = Tracker()
