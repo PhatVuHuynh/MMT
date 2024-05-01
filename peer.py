@@ -1196,7 +1196,7 @@ class Peer:
                 break
     
     def download_file(self, file_name, file_hash=""):
-        peer_info = self.request_peerS_info(file_name, file_hash, "resquest")
+        peer_info = self.request_peerS_info(file_name, file_hash, "request")
         # print(peer_info)
         if peer_info['peers']:
             size, pieces, hash = 0,0,''
