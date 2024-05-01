@@ -89,8 +89,6 @@ class Folder:
                 name += "/"
             self.name = name
         
-        self.size = 0
-        self.local_size = 0
         self.path = path
         self.size = 0
         self.local_size = 0
@@ -126,10 +124,7 @@ class Folder:
                 file_hash = self._calculate_hash(file_path)
                 file = File(file_path, file_hash=file_hash,  name=file_name, parent_folder=self, status=self.status)
                 self.add_file(file)
-                
-        self.size = sum(file.size for file in self.files) + sum(folder.size for folder in self.child_folders)
-        self.local_size = 0 + self.size
-    
+
     def add_file(self, file):
         file.path = f"{self.path}/{file.name}"
         file.parent_folder = self
@@ -169,17 +164,8 @@ class Folder:
         all_child_folders_downloaded = all(folder.status == "Downloaded" for folder in self.child_folders)
         if all_child_folders_downloaded:
             # or len(self.child_folders) == 0:
-            # print(self.name)
             self.status = "Downloaded"
             self.set_path(new_path)
-            # try:
-            #     # print(1)
-            #     if(os.path.exists(self.path) == False):
-            #         self.status = ""
-            #         self.remove_path()
-            # except:
-            #     self.status = ""
-            #     self.remove_path()
         
         # Check if the parent folder exists and update its status if needed
         if self.parent_folder is not None:
@@ -233,19 +219,19 @@ class Folder:
         subfolder_names = subfolder_path.split("/")
         current_folder = self
 
-        # print("////////")
-        # print(subfolder_names)
-        # print("--------")
+        print("////////")
+        print(subfolder_names)
+        print("--------")
         subfolder_names.remove(subfolder_names[0])
 
         for subfolder_name in subfolder_names:
             found_subfolder = None
-            # print(subfolder_name)
-            # print("+++++++++")
+            print(subfolder_name)
+            print("+++++++++")
             for folder in current_folder.child_folders:
-                # print(folder.name)
-                # print(folder.name == subfolder_name)
-                # print("********")
+                print(folder.name)
+                print(folder.name == subfolder_name)
+                print("********")
                 if subfolder_name in folder.name:
                     found_subfolder = folder
                     break
@@ -270,11 +256,11 @@ class Folder:
             subfolder_names = parts[:-1]
             # for subfolder_name in subfolder_names:
             #     subfolder_name += "/"
-            # print("////////")
-            # print(parts)
-            # print(file_name)
-            # print(subfolder_names)
-            # print("--------")
+            print("////////")
+            print(parts)
+            print(file_name)
+            print(subfolder_names)
+            print("--------")
             #First layer
             for file in self.files:
                 if (file.name == file_name) and isinstance(file, File) and ((hash is None) or (file.file_hash == hash)):
@@ -287,12 +273,12 @@ class Folder:
             for subfolder_name in subfolder_names:
                 found = False
                 # subfolder_name = subfolder_name + "/"
-                # print(subfolder_name)
-                # print("+++++++++")
+                print(subfolder_name)
+                print("+++++++++")
                 for folder in current_folder.child_folders:
-                    # print(folder.name)
-                    # print(folder.name == subfolder_name)
-                    # print("********")
+                    print(folder.name)
+                    print(folder.name == subfolder_name)
+                    print("********")
                     if subfolder_name in folder.name:
                         current_folder = folder
                         found = True
@@ -371,6 +357,14 @@ def print_tree(folder:Folder, indent=''):
     for file in folder.files:
         print(f"{new_indent}{file.name} {file.status} {file.path}")
 
+    # Recursively print the child folders
+    for i, child_folder in enumerate(folder.child_folders):
+        # Check if this is the last child folder to adjust the tree branch symbol
+        if i == len(folder.child_folders) - 1:
+            sub_indent = indent + '    '
+        else:
+            sub_indent = indent + '│   '
+        print_tree(child_folder, sub_indent)
 
 # import json
 
