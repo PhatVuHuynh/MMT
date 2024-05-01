@@ -139,10 +139,10 @@ class Peer:
     
 # lấy info peer từ tracker, yêu cầu kết nối và nhận file:
     # lấy info peer
-    def request_peerS_info(self, filename, file_hash):
+    def request_peerS_info(self, filename, file_hash, command):
         # with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
         #     client_socket.connect((self.tracker_host, self.tracker_port))
-        message = json.dumps({'command': 'request', 'file': filename, 'hash': file_hash})
+        message = json.dumps({'command': {command}, 'file': filename, 'hash': file_hash})
         # print(1)
         print(message)
         with self.part_data_lock:
@@ -157,22 +157,22 @@ class Peer:
             print(e)
             return None
         
-    # lấy info peer khi tải lỗi       
-    def request_peer_info_again(self, filename, file_hash):
-        message = json.dumps({'command': 'request', 'file': filename, 'hash': file_hash})
-        # print(1)
-        print(message)
-        with self.part_data_lock:
-            self.client_to_tracker.send(message.encode())
-            response = self.client_to_tracker.recv(PIECE_SIZE)
-        if not response:
-            print("No data received")
-            return None
-        try:
-            return pickle.loads(response)
-        except Exception as e:
-            print(e)
-            return None
+    # # lấy info peer khi tải lỗi       
+    # def request_peer_info_again(self, filename, file_hash):
+    #     message = json.dumps({'command': 'request again', 'file': filename, 'hash': file_hash})
+    #     # print(1)
+    #     print(message)
+    #     with self.part_data_lock:
+    #         self.client_to_tracker.send(message.encode())
+    #         response = self.client_to_tracker.recv(PIECE_SIZE)
+    #     if not response:
+    #         print("No data received")
+    #         return None
+    #     try:
+    #         return pickle.loads(response)
+    #     except Exception as e:
+    #         print(e)
+    #         return None
         
     # receive file (dữ liệu nhận ghi vào filename)
     def download_piece(self, ip_sender, port_sender, filename, start, end, part_data, hash, status):
@@ -691,6 +691,7 @@ class Peer:
             # print(share.status)
             # print(share.path)
             # print("-------")
+        self.container = share_list
         return share_list
     
     def upload_folder(self, folder: Folder): #TODO: Gửi folder lên tracker
@@ -883,8 +884,6 @@ class Peer:
                 global_response += "\n"
             
             print(share_list)
-
-            self.container = share_list
 
             # for c in self.container:
             #     print(f"{c.name} - {c.status}")
@@ -1197,7 +1196,7 @@ class Peer:
                 break
     
     def download_file(self, file_name, file_hash=""):
-        peer_info = self.request_peerS_info(file_name, file_hash)
+        peer_info = self.request_peerS_info(file_name, file_hash, "resquest")
         # print(peer_info)
         if peer_info['peers']:
             size, pieces, hash = 0,0,''
@@ -1313,7 +1312,7 @@ class Peer:
             # print(done, end='\n')
             if done == False:
                 while not done:
-                    new_info = self.request_peer_info_again(file_name, file_hash)
+                    new_info = self.request_peerS_info(file_name, file_hash, "request again")
                     if new_info and new_info['peers']:
                         new_threads = []
                         status = []
