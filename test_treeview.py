@@ -10,16 +10,32 @@ from tracker import *
 from tkinter import filedialog
 from folder import *
 
+class ProgressTreeview(ttk.Treeview):
+    def __init__(self, master, **kw):
+        super().__init__(master, **kw)
+        self.progress_values = {}
+
+    def set_progress(self, item_id, value):
+        # Store the progress value
+        self.progress_values[item_id] = value
+        # Create a text representation of the progress bar
+        max_width = 20  # Maximum width of the progress bar
+        progress_chars = int(value / 100 * max_width)  # Number of characters to show
+        bar = '[' + '#' * progress_chars + ' ' * (max_width - progress_chars) + ']'
+        # Update the "Status" column with the text progress bar
+        self.set(item_id, 'Status', bar)
 
 def update_list(event=None):
     def update_treeview(tree, folder, parent=''):
         if isinstance(folder, Folder):
         # Add the folder to the Treeview
             folder_id = tree.insert(parent, 'end', text=folder.name, values=('',folder.size, folder.status, 'Folder', folder.path))
+            tree.set_progress(folder_id,50)
             folder.treeview_id = folder_id
             # Add all files in the folder to the Treeview
             for file in folder.files:
                 file_id = tree.insert(folder_id, 'end', text=file.name, values=(file.file_hash, file.size, file.status, 'File', file.path))
+                tree.set_progress(file_id,50)
                 file.treeview_id = file_id
             # Recursively add subfolders and their files
             for subfolder in folder.child_folders:
@@ -27,6 +43,7 @@ def update_list(event=None):
                 
         elif isinstance(folder, File):
             folder_id = tree.insert(parent, 'end', text=folder.name, values=(folder.file_hash, folder.size, folder.status, 'File', folder.path))
+            tree.set_progress(folder_id,50)
             folder.treeview_id = folder_id
     global tree
     # folder_list = peer_to_tk_q.get(block=False)
@@ -96,7 +113,7 @@ def download_files():
 
 root = tk.Tk()
 
-tree = ttk.Treeview(root, selectmode='extended')
+tree = ProgressTreeview(root, selectmode='extended')
 # tree['columns'] = ('Size', 'Type', 'Status')  # Add a new column for status
 tree['columns'] = ('Hash', 'Size', 'Status', 'Type','Path')
 tree.column('#0', width=150, minwidth=150, stretch=tk.NO)
