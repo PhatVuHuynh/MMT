@@ -13,6 +13,25 @@ FORMAT = 'utf-8'
 MAX_LISTEN = 100
 DOWNLOAD_PATH = "./download/"
 
+
+# import sched
+# import time
+
+# # Create a scheduler object
+# scheduler = sched.scheduler(time.time, time.sleep)
+
+# # Define a function to be scheduled
+# def print_message(current_size, total_size):
+#     print(f"{current_size} / {total_size}")
+
+# # Schedule the task to be executed every 5 seconds
+# def repeat_task():
+#     i = 0
+#     while i < 5:
+#         scheduler.enter(0.001, 1, print_message)
+#         scheduler.run()
+#     # repeat_task()
+
 class Peer:
     # init peer
     def __init__(self, tracker_host, tracker_port, my_ip, my_port, files=[]):
@@ -21,7 +40,8 @@ class Peer:
         self.my_ip = my_ip
         self.my_port = int(my_port)
         self.container = files
-        self.download_rates = []
+        self.file_list_lock = threading.Lock()
+        self.part_data_lock = threading.Lock()
         # self.update = False
         # self.hashes = []
         # self.sizes = []
@@ -43,7 +63,7 @@ class Peer:
             #     client_socket, addr = self.server_socket.accept()
             threading.Thread(target=self.accept_connections, daemon=True).start()
 
-        self.part_data_lock = threading.Lock()
+        
     
     # def print_container(self):
     #     for c in self.container:
@@ -547,13 +567,69 @@ class Peer:
             files = []
         return metainfo
     
+    def update_contain(self, contain):
+        print(contain.status)
+        print(contain.name)
+        for i in range(len(self.container)):
+            # print(c.path)
+            # print("???????????")
+            # print(os.path.abspath(DOWNLOAD_PATH))
+            if(isinstance(contain, File)):
+                if(contain.name == self.container[i].name):
+                    print(1)
+                    if(self.container[i].status == "Downloaded"):
+                        print("Already downloaded.")
+                    else:
+                    # if(c.status == "Downloading"):
+                        if(self.container[i].path == None):
+                            self.container[i].set_path(os.path.abspath(DOWNLOAD_PATH))
+                        self.container[i].change_status(contain.status)
+                else:
+                    path = self.container[i].get_file(contain.name)
+                    print(path)
+                    if(path is not None):
+                        print(2)
+                        if(path.status == "Downloaded"):
+                            print("Already downloaded.")
+                        else:
+                        # if(c.status == "Downloading"):
+                            if(path.path == None):
+                                self.container[i].get_file(contain.name).set_path(os.path.abspath(DOWNLOAD_PATH))
+                            self.container[i].get_file(contain.name).change_status(contain.status)
+            elif(isinstance(contain, Folder)):
+                if(contain.name == self.container[i].name):
+                    print(3)
+                    if(self.container[i].status == "Downloaded"):
+                        print("Already downloaded.")
+                    else:
+                    # if(c.status == "Downloading"):
+                        if(self.container[i].path == None):
+                            self.container[i].set_path(os.path.abspath(DOWNLOAD_PATH))
+                        self.container[i].change_status(contain.status)
+                else:
+                    path = self.container[i].get_subfolder(contain.name)
+                    if(path is not None):
+                        print(4)
+                        if(path.status == "Downloaded"):
+                            print("Already downloaded.")
+                        else:
+                        # if(c.status == "Downloading"):
+                            if(path.path == None):
+                                self.container[i].set_path(os.path.abspath(DOWNLOAD_PATH))
+                            self.container[i].change_status(contain.status)
+            # print(c.path)
+    
     def update_file_list(self):
-        for c in self.container:
-            print(c.path)
-            print("???????????")
-            print(os.path.abspath(DOWNLOAD_PATH))
-            c.set_path(os.path.abspath(DOWNLOAD_PATH))
-            print(c.path)
+        for i in range(len(self.container)):
+            if(isinstance(self.container[i], Folder)):
+                self.container[i].update_folder(os.path.abspath(DOWNLOAD_PATH))
+            # if(self.container[i].status == ""):
+            #     pass
+            # else:
+            #     if(self.container[i].path == None):
+            #         self.container[i].set_path(os.path.abspath(DOWNLOAD_PATH))
+            #     self.container[i].change_status("Downloaded")
+            # print(c.path)
     
     def request_file_list(self):
         message = json.dumps({'command': 'list'})
@@ -662,42 +738,60 @@ class Peer:
         path = os.path.join(DOWNLOAD_PATH, folder_name)
         # print(path)
         # print(os.path.exists(path))
-        if(os.path.exists(path) == False):
-            os.mkdir(path)
+        try:
+            if(os.path.exists(os.path.dirname(path)) == False):
+                os.mkdir(os.path.dirname(path))
+        except:
+            os.makedirs(os.path.dirname(path))
 
-        share_list = self.request_file_list()
+        # share_list = self.request_file_list()
         temp_list = []
         hash_list = []
         out = False
-        # for c in self.container:
-        for c in share_list:
-            print(c.name)
-            print(c.status)
-            print(c.path)
+
+        for i in range(len(self.container)):
+        # for c in share_list:
+            print(self.container[i].name)
+            print(self.container[i].status)
+            print(self.container[i].path)
             # if(c.status == "Downloaded"):
             #     if(folder_name in c.name or (isinstance(c, Folder) and c.get_subfolder(folder_name) is not None)):
             #         out = True
             #         break
             # else:
-            if(folder_name in c.name):
-                if(c.status == "Downloaded"):
+            file_list = None
+            if(folder_name in self.container[i].name):
+                if(self.container[i].status == "Downloaded"):
                     out = True
                     break
                 else:
-                    file_list = c.get_all_files()
+                    self.container[i].change_status("Downloading")
+                    file_list = self.container[i].get_all_files()
                 
             else:
-                if (isinstance(c, Folder)):
-                    path = c.get_subfolder(folder_name)
-                    if(path.status == "Downloaded"):
-                        out = True
-                        break
+                if (isinstance(self.container[i], Folder)):
+                    path = self.container[i].get_subfolder(folder_name)
                     if(path is not None):
+                        if(path.status == "Downloaded"):
+                            out = True
+                            break
+                        path.change_status("Downloading")
                         file_list = path.get_all_files()
-        if(file_list is not None):
-            for f in file_list:
-                temp_list.append(f.name)
-                hash_list.append(f.file_hash)
+            
+            if(file_list is not None):
+                print(4)
+                print(file_list)
+                for f in file_list:
+                    temp_list.append(f)
+                break
+            
+
+                    
+            # if(c.status == "Downloaded" and isinstance(c, Folder)):
+            #     if(c.get_subfolder(file) is not None):
+            #         out = True
+            #         break
+        print(3)
         if(out):
             print(f"You already have {folder_name}.")
             return
@@ -869,32 +963,38 @@ class Peer:
                 print(1)
                 if(file[-1:] == "/"):
                     # for c in self.container:
-                    for c in self.container:
+                    for i in range(len(self.container)):
                         print(2)
-                        print(c.name)
-                        print(c.status)
-                        print(c.path)
+                        print(self.container[i].name)
+                        print(self.container[i].status)
+                        print(self.container[i].path)
                         # if(c.status == "Downloaded"):
                         #     if(file in c.name or (isinstance(c, Folder) and c.get_subfolder(file) is not None)):
                         #         out = True
                         #         break
                         # else:
                         file_list = None
-                        if(file in c.name):
-                            if(c.status == "Downloaded"):
+                        if(file in self.container[i].name):
+                            if(self.container[i].status == "Downloaded"):
                                 out = True
                                 break
                             else:
-                                file_list = c.get_all_files()
+                                print("Downloading 1")
+                                self.container[i].change_status("Downloading")
+                                file_list = self.container[i].get_all_files()
                             
                         else:
-                            if (isinstance(c, Folder)):
-                                path = c.get_subfolder(file)
+                            if (isinstance(self.container[i], Folder)):
+                                print("Downloading 2")
+                                path = self.container[i].get_subfolder(file)
                                 if(path is not None):
                                     if(path.status == "Downloaded"):
                                         out = True
                                         break
+                                    path.change_status("Downloading")
                                     file_list = path.get_all_files()
+                                    # self.container[i].get_subfolder(file).change_status("Downloading")
+                                    # file_list = self.container[i].get_subfolder(file).get_all_files()
                         
                         if(file_list is not None):
                             print(4)
@@ -931,13 +1031,13 @@ class Peer:
                 #     # self.request_download_folder(file)
                 else:
                     print("????")
-                    for c in self.container:
+                    for i in range(len(self.container)):
                     # for c in self.container:
-                        print(c.name)
-                        print(c.status)
-                        print(c.path)
-                        if(file in c.name):
-                            if(c.status == "Downloaded"):
+                        print(self.container[i].name)
+                        print(self.container[i].status)
+                        print(self.container[i].path)
+                        if(file in self.container[i].name):
+                            if(self.container[i].status == "Downloaded"):
                                 out = True
                                 break
                             else:
@@ -948,13 +1048,14 @@ class Peer:
                                 #     name = f"{root_folder.name}{name}"
                                 #     root_folder = temp_folder.parent_folder
                                 #     temp_folder = root_folder
-                                temp_list.append(c)
+                                self.container[i].change_status("Downloading")
+                                temp_list.append(self.container[i])
                                 remove_list.append(file)
                                 # hash_list.append(c.file_hash)
                                 break
                         else:
-                            if(isinstance(c, Folder)):
-                                path = c.get_file(file)
+                            if(isinstance(self.container[i], Folder)):
+                                path = self.container[i].get_file(file)
                                 
                                 if(path is not None):
                                     print(path.name)
@@ -971,6 +1072,7 @@ class Peer:
                                         #     name = f"{root_folder.name}{name}"
                                         #     root_folder = temp_folder.parent_folder
                                         #     temp_folder = root_folder
+                                        path.get_file(file).change_status("Downloading")
                                         temp_list.append(path)
                                         remove_list.append(file)
                                         # hash_list.append(path.file_hash)
@@ -991,226 +1093,6 @@ class Peer:
                         remove_list.append(file)
                         print(f"You already have {file}.")
                         continue
-                # if(file[-1:] == "/"):
-                #     # for c in self.container:
-                #     for c in share_list:
-                #         print(2)
-                #         print(c.name)
-                #         print(c.status)
-                #         print(c.path)
-                #         # if(c.status == "Downloaded"):
-                #         #     if(file in c.name or (isinstance(c, Folder) and c.get_subfolder(file) is not None)):
-                #         #         out = True
-                #         #         break
-                #         # else:
-                #         file_list = None
-                #         if(file in c.name):
-                #             if(c.status == "Downloaded"):
-                #                 out = True
-                #                 break
-                #             else:
-                #                 file_list = c.get_all_files()
-                            
-                #         else:
-                #             if (isinstance(c, Folder)):
-                #                 path = c.get_subfolder(file)
-                #                 if(path is not None):
-                #                     if(path.status == "Downloaded"):
-                #                         out = True
-                #                         break
-                #                     file_list = path.get_all_files()
-                        
-                #         if(file_list is not None):
-                #             print(4)
-                #             print(file_list)
-                #             for f in file_list:
-                #                 # name = f.name
-                #                 # root_folder = f.parent_folder
-                #                 # temp_folder = f.parent_folder
-                #                 # while root_folder is not None:
-                #                 #     name = f"{root_folder.name}/{name}"
-                #                 #     root_folder = temp_folder.parent_folder
-                #                 #     temp_folder = root_folder
-                #                 temp_list.append(f)
-                #                 # hash_list.append(f.hash)
-                #             # print(file)
-                #             # print(filename)
-                #             # filename.remove(file)
-                #             remove_list.append(file)
-                #             break
-                        
-
-                                
-                #         # if(c.status == "Downloaded" and isinstance(c, Folder)):
-                #         #     if(c.get_subfolder(file) is not None):
-                #         #         out = True
-                #         #         break
-                #     print(3)
-                #     if(out):
-                #         # filename.remove(file)
-                #         remove_list.append(file)
-                #         print(f"You already have {file}.")
-                #         continue
-
-                # #     # self.request_download_folder(file)
-                # else:
-                #     print("????")
-                #     for c in share_list:
-                #     # for c in self.container:
-                #         print(c.name)
-                #         print(c.status)
-                #         print(c.path)
-                #         if(file in c.name):
-                #             if(c.status == "Downloaded"):
-                #                 out = True
-                #                 break
-                #             else:
-                #                 # name = c.name
-                #                 # root_folder = c.parent_folder
-                #                 # temp_folder = c.parent_folder
-                #                 # while root_folder is not None:
-                #                 #     name = f"{root_folder.name}{name}"
-                #                 #     root_folder = temp_folder.parent_folder
-                #                 #     temp_folder = root_folder
-                #                 temp_list.append(c)
-                #                 remove_list.append(file)
-                #                 # hash_list.append(c.file_hash)
-                #                 break
-                #         else:
-                #             if(isinstance(c, Folder)):
-                #                 path = c.get_file(file)
-                                
-                #                 if(path is not None):
-                #                     print(path.name)
-                #                     print(path.status)
-                #                     print(path.path)
-                #                     if(path.status == "Downloaded"):
-                #                         out = True
-                #                         break
-                #                     else:
-                #                         # name = c.name
-                #                         # root_folder = path.parent_folder
-                #                         # temp_folder = path.parent_folder
-                #                         # while root_folder is not None:
-                #                         #     name = f"{root_folder.name}{name}"
-                #                         #     root_folder = temp_folder.parent_folder
-                #                         #     temp_folder = root_folder
-                #                         temp_list.append(path)
-                #                         remove_list.append(file)
-                #                         # hash_list.append(path.file_hash)
-                #                         break
-
-                            
-                #         # if(c.status == "Downloaded"):
-                #         #     if(file in c.name or (isinstance(c, Folder) and path is not None)):
-                #         #         out = True
-                #         #         break
-                #         # else:
-                #         # file_list = c.get_all_files()
-                #             # for f in file_list:
-                            
-                #     print(out)
-                #     if(out):
-                #         # filename.remove(file)
-                #         remove_list.append(file)
-                #         print(f"You already have {file}.")
-                #         continue
-
-                    # self.request_download_file(file, hash_list)
-                # check = self.normalize_path(os.path.abspath(file))
-                # print(check)
-                #check if file in self.container, if true, continue
-                # path = ""
-                # out = False
-
-                # if(os.path.isabs(file)):
-                #     print(1)
-                #     for c in self.container:
-                #         if(file in c.get_path()):
-                #             out = True
-                #             break
-
-                #     print(out)
-                #     if(out):
-                #         # global_response = 
-                #         print(f"You already have {file}.")
-                #         continue
-
-                #     if(os.path.isdir(file)):
-                #         # if(os.path.isabs(file)):
-                #         #     path = 
-                #         path = os.path.join(DOWNLOAD_PATH, os.path.basename(file))
-                #         # print(path)
-                #         # print(os.path.exists(path))
-                #         print(path)
-                #         if(os.path.exists(path) == False):
-                #             os.mkdir(path)
-                #         peer_req = self.request_peerS_info(file)
-                #         # print(peer_req)
-                #         for p in peer_req['peers']:
-                #             temp_list.append(p['file'])
-                #         filename.remove(file)    
-                # else:
-                #     print(2)
-                #     # for c in self.container:
-                #     #     if(file in c.name):
-                #     #         out = True
-                #     #         break
-                #     #     # print(file + f" {c.get_name()}")
-                #     #     # if(file in c.get_name()):
-                #     #         # out = True
-                #     #         # break
-
-                #     # if(out):
-                #     #     # global_response = 
-                #     #     print(f"You already have {file}.")
-                #     #     continue
-
-                #     if(os.path.isdir(file)):
-                #         # if(os.path.isabs(file)):
-                #         #     path = 
-                #         path = os.path.join(DOWNLOAD_PATH, os.path.basename(file))
-                #         # print(path)
-                #         # print(os.path.exists(path))
-                #         print(path)
-                #         if(os.path.exists(path) == False):
-                #             os.mkdir(path)
-                #         peer_req = self.request_peerS_info(file)
-                #         # print(peer_req)
-                #         for p in peer_req['peers']:
-                #             temp_list.append(p['file'])
-                #         filename.remove(file)
-
-                # for c in self.container:
-                #     if(os.path.isabs(file)):
-                #         if(file in c.get_path()):
-                #             out = True
-                #             break    
-                #     else:
-                #         if(check in c.get_name()):
-                #             out = True
-                #             break
-                # print(out)
-                # if(out):
-                #     # global_response = 
-                #     print(f"You already have {file}.")
-                #     continue
-                # print(path)
-                # print(os.path.isdir(path))
-                # print(os.path.isfile(path))
-                
-                # if(file[-1:] == "/"):
-                #     path = os.path.join(DOWNLOAD_PATH, file)
-                #     # print(path)
-                #     # print(os.path.exists(path))
-                #     print(path)
-                #     if(os.path.exists(path) == False):
-                #         os.mkdir(path)
-                #     peer_req = self.request_peerS_info(file)
-                #     # print(peer_req)
-                #     for p in peer_req['peers']:
-                #         temp_list.append(p['file'])
-                #     filename.remove(file)
 
             # print(remove_list)
             for r in remove_list:
@@ -1231,14 +1113,31 @@ class Peer:
                     
                     root_folder = temp_folder.parent_folder
                     temp_folder = root_folder
+                # f.name = name
                 filename.append(name)
                 hash_list.append(f.file_hash)
-
+            
             print(filename)
             print(hash_list)
 
+            for c in self.container:
+                if(isinstance(c, File)):
+                    print(c.name)
+                    print(c.status)
+                    print(c.path)
+                else:
+                    print_tree(c)
+            # self.manage_downloads(temp_list)
             self.manage_downloads(filename, hash_list)
             self.update_file_list()
+            for c in self.container:
+                if(isinstance(c, File)):
+                    print(c.name)
+                    print(c.status)
+                    print(c.path)
+                else:
+                    print_tree(c)
+            # self.update_file_list()
             # self.response = ""
             global_response = ""
         else:
@@ -1364,79 +1263,30 @@ class Peer:
 
             part_data.sort(key=lambda x: x[0])
 
-            # data = b"".join([part[1] for part in part_data])
-            # print(data)
-            # sum_hash = self.create_hash_data(data)
-            
-            # print(sum_hash)
-            # print(hash)
-
-            # with part_data_lock:
-            #     for i, result in enumerate(part_data):
-            #         data += result
-            
             try:
+                file = p['file']
+                file.name = file_name
                 if(file_hash == ""):
                     if file_hash == hash:
-                        # with self.part_data_lock:
-                        #     check = input(f"Do you want to rename {file_name}? Enter \"yes\" to rename, else press 'enter' again:")
-                        #     if(check.strip().lower() == "yes"):
-                        #         new_filename = input("Please enter other name:")
-                        #         try:
-                        #             slash_id = file_name.rindex('/')
-
-                        #             file_name = file_name[:slash_id + 1] + new_filename
-                        #         except:
-                        #             file_name = new_filename
                             
                         path = os.path.join(DOWNLOAD_PATH, file_name)
                         print(path)
-                        # path = self.normalize_path(path)
-                        # print(os.path.isfile(path))
-                        # print(os.path.dirname(path))
-
                         try:
                             if(os.path.exists(os.path.dirname(path)) == False):
                                 os.mkdir(os.path.dirname(path))
                         except:
                             os.makedirs(os.path.dirname(path))
                         
-                        with open(path, 'wb') as result_file:
-                        # print(part_data)
-                            for _ , file_bin in part_data:
-                                # print(file_bin)
-                                with open(file_bin, 'rb') as file_read:
-                                    while True:
-                                        chunk = file_read.read(PIECE_SIZE)
-                                        # print(chunk)
-                                        if not chunk:
-                                            break
-                                        else:
-                                            piece_hash = hashlib.sha256(chunk).hexdigest()
-                                            hash_sum += piece_hash
-                                            result_file.write(chunk)
-                                os.remove(file_bin)
-                        result_file.close()
+                        with self.file_list_lock:
+                            file.status = f"Downloaded"
+                            self.update_contain(file)
                         print(f"File {file_name} has been downloaded.")
                     else:
                         print(f"Hash difference.")
                 else:
                     hash_sum = ""
-                    # with self.part_data_lock:
-                    #     check = input(f"Do you want to rename {file_name}? Enter \"yes\" to rename, else press 'enter' again:")
-                    #     if(check.strip().lower() == "yes"):
-                    #         new_filename = input("Please enter other name:")
-                    #         try:
-                    #             slash_id = file_name.rindex('/')
-
-                    #             file_name = file_name[:slash_id + 1] + new_filename
-                    #         except:
-                    #             file_name = new_filename
                     path = os.path.join(DOWNLOAD_PATH, file_name)
                     print(path)
-                    # path = self.normalize_path(path)
-                    # print(os.path.isfile(path))
-                    # print(os.path.dirname(path))
                     try:
                         if(os.path.exists(os.path.dirname(path)) == False):
                             os.mkdir(os.path.dirname(path))
@@ -1451,11 +1301,23 @@ class Peer:
                                     chunk = file_read.read(PIECE_SIZE)
                                     # print(chunk)
                                     if not chunk:
+                                        with self.file_list_lock:
+                                            file.status = f"Downloaded"
+                                            self.update_contain(file)
                                         break
                                     else:
                                         piece_hash = hashlib.sha256(chunk).hexdigest()
                                         hash_sum += piece_hash
                                         result_file.write(chunk)
+                                        # print_message(result_file.tell(), size)
+                                        percent = round(float(result_file.tell() / size * 100))
+                                        if(percent == 100):
+                                            file.status = f"Downloaded"
+                                        else:
+                                            file.status = f"Downloading: {percent}"
+                                        # print(file.status)
+                                        with self.file_list_lock:
+                                            self.update_contain(file)
                             os.remove(file_bin)
                     result_file.close()
 
@@ -1486,8 +1348,8 @@ class Peer:
             thread.join()
 
         print(f"Download finish.")
-        for speed in self.download_rates:
-            print(speed[0]," ",speed[1], end='\n')
+        # for speed in self.download_rates:
+        #     print(speed[0]," ",speed[1], end='\n')
     
 if __name__ == "__main__":
     TRACKER_IP = input("Please enter Tracker's IP you want to connect:")

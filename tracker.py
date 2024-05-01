@@ -224,8 +224,8 @@ class Tracker:
                         for cont in peer_info['container']:
                             # if(c.get_type() == 'file'):
                             print(cont.name)
-                            temp = cont.get_all_file_names()
-                            print(temp)
+                            # temp = cont.get_all_file_names()
+                            # print(temp)
                             available_files.append(cont)
                             # conts = json.loads(conts)
                             # print(conts)
@@ -264,10 +264,23 @@ class Tracker:
                         
                         for c in self.peers[addr]['container']:
                             if(c.path == cont.path):
-                                c = cont
+                                self.peers[addr]['container'][self.peers[addr]['container'].index(c)] = cont
                                 flag = False
                                 res = "0"
                                 break
+                            elif(isinstance(c, Folder)):
+                                if(isinstance(cont, File)):
+                                    path = c.get_file(cont.name).change_file(cont)
+                                    print(path.file_hash)
+                                    flag = False
+                                    res = "0"
+                                    break
+                                elif(isinstance(cont, Folder)):
+                                    path = c.get_subfolder(cont.name).change_folder(cont)
+                                    flag = False
+                                    res = "0"
+                                    break
+                                
                         if(flag):
                             res = "True"
                             self.peers[addr]['container'].append(cont)

@@ -41,6 +41,10 @@ class File:
     
     def remove_path(self):
         self.path = None
+
+    def change_file(self, file):
+        self = file
+        return self
     
     def change_status(self, status):
         self.status = status
@@ -141,6 +145,32 @@ class Folder:
         for folder in self.child_folders:
             folder.remove_path()
 
+    def change_folder(self, folder):
+        self = folder
+        return self
+    
+    def update_folder(self, new_path):
+        for folder in self.child_folders:
+            folder.update_folder(new_path)
+
+        if self.status == "Downloaded":
+            # self.set_path(new_path)
+            return
+        
+        for file in self.files:
+            if file.status != "Downloaded":
+                return
+        
+        all_child_folders_downloaded = all(folder.status == "Downloaded" for folder in self.child_folders)
+        if all_child_folders_downloaded:
+            # or len(self.child_folders) == 0:
+            self.status = "Downloaded"
+            self.set_path(new_path)
+        
+        # Check if the parent folder exists and update its status if needed
+        if self.parent_folder is not None:
+            self.parent_folder.update_folder(new_path)
+
     def change_status(self, status):
         # Set the folder's path to None
         self.status = status
@@ -189,10 +219,20 @@ class Folder:
         subfolder_names = subfolder_path.split("/")
         current_folder = self
 
+        print("////////")
+        print(subfolder_names)
+        print("--------")
+        subfolder_names.remove(subfolder_names[0])
+
         for subfolder_name in subfolder_names:
             found_subfolder = None
+            print(subfolder_name)
+            print("+++++++++")
             for folder in current_folder.child_folders:
-                if folder.name == subfolder_name:
+                print(folder.name)
+                print(folder.name == subfolder_name)
+                print("********")
+                if subfolder_name in folder.name:
                     found_subfolder = folder
                     break
 
@@ -310,12 +350,12 @@ def tree(folder:Folder, indent='')->str:
 
 def print_tree(folder:Folder, indent=''):
     # Print the current folder name
-    print(f"{indent}{folder.name}")
+    print(f"{indent}{folder.name} {folder.status} {folder.path}")
     new_indent = indent + '│   '
 
     # Print all the files in the current folder
     for file in folder.files:
-        print(f"{new_indent}{file.name}")
+        print(f"{new_indent}{file.name} {file.status} {file.path}")
 
     # Recursively print the child folders
     for i, child_folder in enumerate(folder.child_folders):
