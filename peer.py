@@ -22,6 +22,7 @@ class Peer:
         self.my_ip = my_ip
         self.my_port = int(my_port)
         self.files = files
+        self.download_rates = []
         self.hashes = []
         self.sizes = []
 
@@ -230,7 +231,13 @@ class Peer:
             #     file_bytes += file_data
             print(f"start merge piece")
             
-            file_bytes = b"".join(part for part in arr)
+            file_path = f"{start}.bin"
+            
+            with open(file_path, 'wb') as file_part:
+                for item in arr:
+                    file_part.write(item)
+            file_part.close()
+            print(f"Successfully wrote array to file: {file_path}")
             
             print("end merge piece")
             # end_time = time.time()
@@ -254,11 +261,13 @@ class Peer:
             #     heapq.heappop(self.download_rates)
 
             # Ghi dữ liệu piece
-            print('start add arr')
+            print('start add with lock')
+
             with self.part_data_lock:
-                part_data.append((start, file_bytes))
+                part_data.append((start, file_path))
                 s.send("done".encode())
-            print('end add arr')
+
+            print('end add with lock')
             # file.write(file_bytes)
 
         except Exception as e:
@@ -337,7 +346,7 @@ class Peer:
             print(f"Error: {e}")
         finally:
             client_socket.close()
-            client_socket.close()
+            # client_socket.close()
 
     def normalize_path(self, path):
         return os.path.normpath(path).replace('\\', "/")
@@ -369,7 +378,7 @@ class Peer:
                 sizes = []
                 pieces = []
                 hashes = []
-                
+                # print(os.path.getsize("./server_data/2114391.png"))
                 for root, _, filenames in os.walk(file_path):
                     # print(root)
                     # print(filenames)
@@ -381,8 +390,8 @@ class Peer:
                         
                         file_rel_path = os.path.relpath(file_abs_path, file_path)
                         file_rel_path = self.normalize_path(file_rel_path)
-                        # print(file_abs_path)
-                        # print(file_rel_path)
+                        print(file_abs_path)
+                        print(file_rel_path)
 
                         try:
                             # print(1)
@@ -398,6 +407,8 @@ class Peer:
                         files.append(file_rel_path)
                         sizes.append(file_size)
                         hash = self.create_hash_file(file_abs_path)
+                        print(file_size)
+                        print(hash)
                         hashes.append(hash)
 
                         self.files.append(file_abs_path)
@@ -678,7 +689,7 @@ class Peer:
             part_data.sort(key=lambda x: x[0])
 
             data = b"".join([part[1] for part in part_data])
-            # print(data)
+            # # print(data)
             sum_hash = self.create_hash_data(data)
             
             # print(sum_hash)
@@ -689,6 +700,29 @@ class Peer:
             #         data += result
             
             try:
+                # print(1)
+                # print(file_name)
+                # path = os.path.join(DOWNLOAD_PATH, file_name)
+                # print(path)
+                # # path = self.normalize_path(path)
+                # # print(os.path.isfile(path))
+                # # print(os.path.dirname(path))
+
+                # if(os.path.exists(os.path.dirname(path)) == False):
+                #     os.mkdir(os.path.dirname(path))
+                # with open(path, 'wb') as result_file:
+                #     # print(part_data)
+                #     for _ , file_bin in part_data:
+                #         # print(file_bin)
+                #         with open(file_bin, 'rb') as file_read:
+                #             while True:
+                #                 chunk = file_read.read(1024*1024)
+                #                 # print(chunk)
+                #                 if not chunk:
+                #                     break
+                #                 result_file.write(chunk)
+                #         os.remove(file_bin)
+                # result_file.close()
                 if sum_hash == hash:
                     with self.part_data_lock:
                         check = input(f"Do you want to rename {file_name}? Enter \"yes\" to rename, else press 'enter' again:")
@@ -700,20 +734,44 @@ class Peer:
                                 file_name = file_name[:slash_id + 1] + new_filename
                             except:
                                 file_name = new_filename
-                        
+                    print(1)
+                    print(file_name)
                     path = os.path.join(DOWNLOAD_PATH, file_name)
+                    print(path)
                     # path = self.normalize_path(path)
                     # print(os.path.isfile(path))
                     # print(os.path.dirname(path))
 
                     if(os.path.exists(os.path.dirname(path)) == False):
                         os.mkdir(os.path.dirname(path))
-                    
-                    file = open(path, "wb")
-                    
-                    file.write(data)
+                    with open(path, 'wb') as result_file:
+                        # print(part_data)
+                        for _ , file_bin in part_data:
+                            # print(file_bin)
+                            with open(file_bin, 'rb') as file_read:
+                                while True:
+                                    chunk = file_read.read(1024*1024)
+                                    # print(chunk)
+                                    if not chunk:
+                                        break
+                                    result_file.write(chunk)
+                            os.remove(file_bin)
+                    result_file.close()
 
-                    file.close()
+                        
+                    # path = os.path.join(DOWNLOAD_PATH, file_name)
+                    # # path = self.normalize_path(path)
+                    # # print(os.path.isfile(path))
+                    # # print(os.path.dirname(path))
+
+                    # if(os.path.exists(os.path.dirname(path)) == False):
+                    #     os.mkdir(os.path.dirname(path))
+                    
+                    # file = open(path, "wb")
+                    
+                    # file.write(data)
+
+                    # file.close()
                     print(f"File {file_name} has been downloaded.")
                 else:
                     print(f"Hash difference.")
@@ -738,8 +796,8 @@ class Peer:
 
         print(f"Download finish.")
 
-        # for speed in self.download_rates:
-        #     print(speed[0]," ",speed[1], end='\n')
+        for speed in self.download_rates:
+            print(speed[0]," ",speed[1], end='\n')
     
 if __name__ == "__main__":
     TRACKER_IP = input("Please enter Tracker's IP you want to connect:")
