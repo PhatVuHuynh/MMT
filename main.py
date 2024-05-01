@@ -37,7 +37,7 @@ def upload_file(): #TODO
 def request_list():
     tk_to_peer_q.put("GET LIST")
 
-def update_list(event=None):
+def display_list(event=None):
     def update_treeview(tree, folder, parent=''):
         if isinstance(folder, Folder):
         # Add the folder to the Treeview
@@ -56,9 +56,9 @@ def update_list(event=None):
             folder.treeview_id = folder_id
             
     global tree
-    folder_list = peer_to_tk_q.get(block=False)
-    with file_list_lock:
-        for folder in folder_list:
+    global peer
+    with peer.file_list_lock:
+        for folder in peer.container:
             update_treeview(tree, folder)
 
     
@@ -210,8 +210,7 @@ if __name__ == "__main__":
 
     tk_to_peer_q = queue.Queue()
     peer_to_tk_q = queue.Queue()
-    file_list_lock = threading.Lock()
-    backend_thread = threading.Thread(target=peer.run, args=(root, tk_to_peer_q,peer_to_tk_q,file_list_lock,), daemon=True )
+    backend_thread = threading.Thread(target=peer.run, args=(root, tk_to_peer_q,peer_to_tk_q,), daemon=True )
 
     
     root.geometry("400x200")
@@ -298,6 +297,16 @@ if __name__ == "__main__":
 
     # Bind right-click to on_right_click function
     tree.bind("<Button-3>", on_right_click)
+    # Vertical scrollbar
+    vert_scrollbar = ttk.Scrollbar(tree, orient="vertical", command=tree.yview)
+    vert_scrollbar.pack(side='right', fill='y')
+
+    # Horizontal scrollbar
+    horiz_scrollbar = ttk.Scrollbar(tree, orient="horizontal", command=tree.xview)
+    horiz_scrollbar.pack(side='bottom', fill='x')
+
+    # Configure the treeview
+    tree.configure(yscrollcommand=vert_scrollbar.set, xscrollcommand=horiz_scrollbar.set)
 
     tree.pack(fill="both", expand=True)
     
@@ -327,7 +336,7 @@ if __name__ == "__main__":
     root.config(menu=menu_bar)
     
     root.bind("<<ReceiveLogin>>", receive_validate_login)
-    root.bind("<<UpdateList>>", update_list)
+    root.bind("<<DisplayList>>", display_list)
     #create timer
     root.after(10, timer_trigger)
     

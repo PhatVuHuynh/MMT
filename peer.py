@@ -26,18 +26,13 @@ class Peer:
         self.my_port = int(my_port)
         
         if files is None:
-            self.files = []
-        else:
-            self.files = file
+            files = []
+            
+        self.files = files
         self.container = files
         self.file_list_lock = threading.Lock()
         self.part_data_lock = threading.Lock()
-        # self.update = False
-        # self.hashes = []
-        # self.sizes = []
 
-        self.part_data_lock = threading.Lock()
-        self.file_list_lock = None
 
         sizes, hashes = [],[]
         for file in self.files:
@@ -720,8 +715,11 @@ class Peer:
         
         response = self.client_to_tracker.recv(PIECE_SIZE)
         
-        share_list = pickle.loads(response)
-
+        try:
+            share_list = pickle.loads(response)
+        except Exception as e:
+            print(f"Error unpickling data: {e}")
+        
         for share in share_list:
             try:
                 print(share.name)
@@ -1249,9 +1247,8 @@ class Peer:
                 break
             
             
-    def run(self, gui:tk.Tk, tk_to_peer_q:queue.Queue, peer_to_tk_q:queue.Queue, lock:threading.Lock) -> None: #similar to send, wait for a command
+    def run(self, gui:tk.Tk, tk_to_peer_q:queue.Queue, peer_to_tk_q:queue.Queue) -> None: #similar to send, wait for a command
         q = queue.Queue()
-        self.file_list_lock=lock
         while True:
             message = tk_to_peer_q.get() #block here
             print (message)
@@ -1283,24 +1280,20 @@ class Peer:
                 peer_to_tk_q.put(response)
                 
             elif message == "GET LIST":
-                self.sen_process (data="list", q=q)
-                reponse_list = self.request_file_list()
-                peer_to_tk_q.put(reponse_list)
-                gui.event_generate("<<UpdateList>>", when="tail")
+                # self.sen_process (data="list", q=q)
+                with self.file_list_lock:
+                    self.container = self.request_file_list()
+                gui.event_generate("<<DisplayList>>", when="tail")
                 
             elif message == "UPLOAD FOLDER":
                 new_folder = tk_to_peer_q.get()
                 self.upload_folder(new_folder)
-                reponse_list = self.request_file_list()
-                peer_to_tk_q.put(reponse_list)
-                gui.event_generate("<<UpdateList>>", when="tail")
+                gui.event_generate("<<DisplayList>>", when="tail")
                 
             elif message == "UPLOAD FILE":
                 new_file = tk_to_peer_q.get()
                 self.upload_file(new_file)
-                reponse_list = self.request_file_list()
-                peer_to_tk_q.put(reponse_list)
-                gui.event_generate("<<UpdateList>>", when="tail")
+                gui.event_generate("<<DisplayList>>", when="tail")
                 
             elif message == "DOWNLOAD FILE":
                 file_hash, file_name = tk_to_peer_q.get()
@@ -1311,23 +1304,6 @@ class Peer:
             else:
                 pass
             
-    def request_file_list(self)->list: #TODO: Trả về list gồm các file và folder cùng tình trạng đã tải về hay chưa tải về trên peer
-        #Downloaded, '', Downloading
-        return self.folder_list
-    def update_file_list(self)->None:
-        pass
-    
-    def upload_folder(self, folder: Folder)->None: #TODO: Gửi folder lên tracker
-        pass
-    
-    def upload_file (self, file: File)->None: #TODO: GỬI FILE
-        pass
-    
-    def request_download_file(self, file_name: str, hash: str)->None:
-        pass
-    
-    def request_download_folder(self, folder_name:str)->None:
-        pass
 
     # def download_file(self, file_name, part_data):
         # peer_info = self.request_peerS_info(file_name)
