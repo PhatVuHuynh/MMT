@@ -164,8 +164,17 @@ class Folder:
         all_child_folders_downloaded = all(folder.status == "Downloaded" for folder in self.child_folders)
         if all_child_folders_downloaded:
             # or len(self.child_folders) == 0:
+            # print(self.name)
             self.status = "Downloaded"
             self.set_path(new_path)
+            # try:
+            #     # print(1)
+            #     if(os.path.exists(self.path) == False):
+            #         self.status = ""
+            #         self.remove_path()
+            # except:
+            #     self.status = ""
+            #     self.remove_path()
         
         # Check if the parent folder exists and update its status if needed
         if self.parent_folder is not None:
@@ -219,19 +228,19 @@ class Folder:
         subfolder_names = subfolder_path.split("/")
         current_folder = self
 
-        print("////////")
-        print(subfolder_names)
-        print("--------")
+        # print("////////")
+        # print(subfolder_names)
+        # print("--------")
         subfolder_names.remove(subfolder_names[0])
 
         for subfolder_name in subfolder_names:
             found_subfolder = None
-            print(subfolder_name)
-            print("+++++++++")
+            # print(subfolder_name)
+            # print("+++++++++")
             for folder in current_folder.child_folders:
-                print(folder.name)
-                print(folder.name == subfolder_name)
-                print("********")
+                # print(folder.name)
+                # print(folder.name == subfolder_name)
+                # print("********")
                 if subfolder_name in folder.name:
                     found_subfolder = folder
                     break
@@ -256,11 +265,11 @@ class Folder:
             subfolder_names = parts[:-1]
             # for subfolder_name in subfolder_names:
             #     subfolder_name += "/"
-            print("////////")
-            print(parts)
-            print(file_name)
-            print(subfolder_names)
-            print("--------")
+            # print("////////")
+            # print(parts)
+            # print(file_name)
+            # print(subfolder_names)
+            # print("--------")
             #First layer
             for file in self.files:
                 if (file.name == file_name) and isinstance(file, File) and ((hash is None) or (file.file_hash == hash)):
@@ -273,12 +282,12 @@ class Folder:
             for subfolder_name in subfolder_names:
                 found = False
                 # subfolder_name = subfolder_name + "/"
-                print(subfolder_name)
-                print("+++++++++")
+                # print(subfolder_name)
+                # print("+++++++++")
                 for folder in current_folder.child_folders:
-                    print(folder.name)
-                    print(folder.name == subfolder_name)
-                    print("********")
+                    # print(folder.name)
+                    # print(folder.name == subfolder_name)
+                    # print("********")
                     if subfolder_name in folder.name:
                         current_folder = folder
                         found = True
