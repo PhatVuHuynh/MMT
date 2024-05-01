@@ -142,7 +142,7 @@ class Peer:
     def request_peerS_info(self, filename, file_hash, command):
         # with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
         #     client_socket.connect((self.tracker_host, self.tracker_port))
-        message = json.dumps({'command': {command}, 'file': filename, 'hash': file_hash})
+        message = json.dumps({'command': command, 'file': filename, 'hash': file_hash})
         # print(1)
         print(message)
         with self.part_data_lock:
