@@ -712,29 +712,31 @@ class Peer:
         message = json.dumps({'command': 'list'})
             
         self.client_to_tracker.send(message.encode())
-        
+        print (f"dccmm")
         response = self.client_to_tracker.recv(PIECE_SIZE)
-        
+        print (f"DCCM")
         try:
             share_list = pickle.loads(response)
         except Exception as e:
             print(f"Error unpickling data: {e}")
         
-        for share in share_list:
+        for i in range(len(share_list)):
             try:
-                print(share.name)
-                id = self.container.index(share)
+                print(share_list[i].name)
+                id = self.container.index(share_list[i])
                 print(id)
                 if(id > -1):
-                    share.change_status("Downloaded")
+                    share_list[i] = self.container[id]
+                    share_list[i].change_status("Downloaded")
             except Exception as e:
                 print(e)
-                share.change_status("")
-                share.remove_path()
+                share_list[i].change_status("")
+                share_list[i].remove_path()
             # print(share.name)
             # print(share.status)
             # print(share.path)
             # print("-------")
+        # self.container=share_list
         return share_list
     
     def upload_folder(self, folder: Folder): #TODO: Gửi folder lên tracker
@@ -1291,14 +1293,12 @@ class Peer:
                     self.upload_folder(new_folder)
                     print(self.client_to_tracker.recv(1024).decode())
                 gui.event_generate("<<DisplayList>>", when="tail")
-                
             elif message == "UPLOAD FILE":
                 new_file = tk_to_peer_q.get()
                 with self.file_list_lock:
                     self.upload_file(new_file)
                     print(self.client_to_tracker.recv(1024).decode())
                 gui.event_generate("<<DisplayList>>", when="tail")
-                
             elif message == "DOWNLOAD FILE":
                 file_hash, file_name = tk_to_peer_q.get()
                 self.request_download_file(file_name=file_name, file_hash=file_hash)
@@ -1594,4 +1594,3 @@ if __name__ == "__main__":
     peer.sen()
     print("end")
     # sys.exit()
-    

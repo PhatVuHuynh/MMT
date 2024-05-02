@@ -38,7 +38,9 @@ class File:
             return self.path == other.path
             # and self.path == other.path and self.parent_folder == other.parent_folder and self.file_hash == other.file_hash and self.status == other.status
         return False
-    
+    def set_treeview_id(self, new_id):
+        self.treeview_id = new_id
+        
     def remove_path(self):
         self.path = None
 
@@ -98,10 +100,13 @@ class Folder:
         self.child_folders = []
         self.files = []
         self.status = status
+        self.treeview_id = None
         # global test
         # if test: print (f"CREATING folder name \"{self.name}\" with the path \"{self.path}\"")
         self._initialize_folder_structure()
-
+    def set_treeview_id(self, new_id):
+        self.treeview_id = new_id
+    
     def __eq__(self, other):
         if isinstance(other, Folder):
             return self.path == other.path
@@ -417,3 +422,9 @@ def print_tree(folder:Folder, indent=''):
     
 #     def set_pieces(self, pieces):
 #         self.pieces = pieces
+'''
+Container: a,b,c,d 
+a,b: đã tải rồi
+c: đang tải
+d: chưa có, đang ở trên Tracker
+'''
