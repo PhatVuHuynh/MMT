@@ -682,6 +682,7 @@ class Peer:
                 id = self.container.index(share)
                 print(id)
                 if(id > -1):
+                    share.treeview_id = self.container[id].treeview_id
                     share.change_status("Downloaded")
             except Exception as e:
                 print(e)
