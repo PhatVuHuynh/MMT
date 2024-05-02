@@ -676,18 +676,18 @@ class Peer:
         
         share_list = pickle.loads(response)
 
-        for share in share_list:
+        for i in range(len(share_list)):
             try:
-                print(share.name)
-                id = self.container.index(share)
+                print(share_list[i].name)
+                id = self.container.index(share_list[i])
                 print(id)
                 if(id > -1):
-                    share.treeview_id = self.container[id].treeview_id
-                    share.change_status("Downloaded")
+                    share_list[i] = self.container[id]
+                    share_list[i].change_status("Downloaded")
             except Exception as e:
                 print(e)
-                share.change_status("")
-                share.remove_path()
+                share_list[i].change_status("")
+                share_list[i].remove_path()
             # print(share.name)
             # print(share.status)
             # print(share.path)
