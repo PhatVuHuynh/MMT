@@ -113,28 +113,31 @@ class Peer:
 
     #Tạo tổng hash của file_name
     def create_hash_file(self, file_name):
+        sha1 = hashlib.sha1()
         hash_sum = ""
         with open(file_name, 'rb') as file:
             piece_offset = 0
             piece = file.read(PIECE_SIZE)
             while piece:
-                piece_hash = hashlib.sha256(piece).hexdigest()
-                hash_sum += piece_hash
+                hash_sum = sha1.update(piece)
                 piece_offset += len(piece)
                 piece = file.read(PIECE_SIZE)
-
+        hash_sum = sha1.hexdigest()
+        print(hash_sum)
         return hash_sum
     
     def create_hash_data(self, data):
+        sha1 = hashlib.sha1()
         sum_hash = ""
         offset = 0
         
         while offset < len(data):
             piece = data[offset:offset+PIECE_SIZE]
-            piece_hash = hashlib.sha256(piece).hexdigest()
-            sum_hash += piece_hash
+            sum_hash = sha1.update(piece)
             offset += PIECE_SIZE
-        
+        # sum_hash = hashlib.sha1(sum_hash.encode()).hexdigest
+        sum_hash = sha1.hexdigest()
+        print(sum_hash)
         return sum_hash
     
 # lấy info peer từ tracker, yêu cầu kết nối và nhận file:
@@ -671,11 +674,14 @@ class Peer:
         message = json.dumps({'command': 'list'})
             
         self.client_to_tracker.send(message.encode())
-        
+        print (f"dccmm")
         response = self.client_to_tracker.recv(PIECE_SIZE)
+        print (f"DCCM")
+        try:
+            share_list = pickle.loads(response)
+        except Exception as e:
+            print(f"Error unpickling data: {e}")
         
-        share_list = pickle.loads(response)
-
         for i in range(len(share_list)):
             try:
                 print(share_list[i].name)
@@ -683,7 +689,8 @@ class Peer:
                 print(id)
                 if(id > -1):
                     share_list[i] = self.container[id]
-                    share_list[i].change_status("Downloaded")
+                    if os.path.exists(self.container[id].path):
+                        share_list[i].change_status("Downloaded")
             except Exception as e:
                 print(e)
                 share_list[i].change_status("")
@@ -692,7 +699,7 @@ class Peer:
             # print(share.status)
             # print(share.path)
             # print("-------")
-        self.container = share_list
+        self.container=share_list
         return share_list
     
     def upload_folder(self, folder: Folder): #TODO: Gửi folder lên tracker
@@ -1385,6 +1392,7 @@ class Peer:
                         else:
                             print(f"Hash difference.")
                     else:
+                        sha1 = hashlib.sha1()
                         hash_sum = ""
                         path = os.path.join(DOWNLOAD_PATH, file_name)
                         print(path)
@@ -1407,8 +1415,8 @@ class Peer:
                                                 self.update_contain(file)
                                             break
                                         else:
-                                            piece_hash = hashlib.sha256(chunk).hexdigest()
-                                            hash_sum += piece_hash
+                                            # piece_hash = str(hashlib.sha1(chunk)) #.hexdigest()
+                                            hash_sum = sha1.update(chunk)
                                             result_file.write(chunk)
                                             # print_message(result_file.tell(), size)
                                             percent = round(float(result_file.tell() / size * 100))
@@ -1419,13 +1427,14 @@ class Peer:
                                             # print(file.status)
                                             with self.file_list_lock:
                                                 self.update_contain(file)
+                                        hash_sum = sha1.hexdigest()
                                 os.remove(file_bin)
                         result_file.close()
 
                         end_time = time.time()
 
                         total_time = end_time - start_time
-
+                        # hash_sum = hashlib.sha1(hash_sum.encode()).hexdigest()
                         if(hash_sum == hash):
                             print(f"File {file_name} has been downloaded within {total_time}.")
                         else:

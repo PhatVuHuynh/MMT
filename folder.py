@@ -62,15 +62,17 @@ class File:
         # if test: print (f"The file name \"{self.name}\" now has the path \"{self.path}\"")
 
     def _calculate_hash(self, file_path) -> str:
+        sha1 = hashlib.sha1()
         hash_sum = ""
         with open(file_path, 'rb') as file:
             piece_offset = 0
             piece = file.read(PIECE_SIZE)
             while piece:
-                piece_hash = hashlib.sha256(piece).hexdigest()
-                hash_sum += piece_hash
+                hash_sum = sha1.update(piece)
                 piece_offset += len(piece)
                 piece = file.read(PIECE_SIZE)
+        hash_sum = sha1.hexdigest()
+        print(hash_sum)
         return hash_sum
     
     def detach_parent(self):
@@ -211,16 +213,17 @@ class Folder:
             folder.set_path(self.path)
     
     def _calculate_hash(self, file_path)->str:
+        sha1 = hashlib.sha1()
         hash_sum = ""
         with open(file_path, 'rb') as file:
             piece_offset = 0
             piece = file.read(PIECE_SIZE)
             while piece:
-                piece_hash = hashlib.sha256(piece).hexdigest()
-                hash_sum += piece_hash
+                hash_sum = sha1.update(piece)
                 piece_offset += len(piece)
                 piece = file.read(PIECE_SIZE)
-
+        # hash_sum = hashlib.sha1(hash_sum.encode()).hexdigest()
+        hash_sum = sha1.hexdigest()
         return hash_sum
 
     def get_subfolder(self, subfolder_path: str):
