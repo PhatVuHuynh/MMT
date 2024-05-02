@@ -23,13 +23,15 @@ def upload_folder(): #TODO
     folder_path = filedialog.askdirectory()
     print (f"upload {folder_path}")
     if folder_path:
-        new_folder = Folder(folder_path, status="Downloaded")
+        folder_name = os.path.basename(folder_path)
+        new_folder = Folder(folder_path, name=folder_name, status="Downloaded")
         tk_to_peer_q.put("UPLOAD FOLDER")
         tk_to_peer_q.put(new_folder)
 
 def upload_file(): #TODO
     file_path = filedialog.askopenfilename()
     if file_path:
+        # folder_name = os.path.basename(file_path)
         new_file = File(file_path, status="Downloaded")
         tk_to_peer_q.put("UPLOAD FILE")
         tk_to_peer_q.put(new_file)

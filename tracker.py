@@ -35,7 +35,7 @@ class Tracker:
     def handle_client(self, client_socket, addr):
         try:
             while True:
-                print(2)
+                # print(2)
                 try:
                     data = client_socket.recv(PIECE_SIZE)
                     print (data)
@@ -265,27 +265,42 @@ class Tracker:
                             # print(type(meta['container']))
                             
                         cont = data['metainfo']
-                        
+                        print(cont.path)
                         for c in self.peers[addr]['container']:
+                            print(c.path)
                             if(c.path == cont.path):
-                                self.peers[addr]['container'][self.peers[addr]['container'].index(c)] = cont
-                                flag = False
-                                res = "0"
-                                break
+                                try: 
+                                    id = self.peers[addr]['container'].index(c)
+                                    print(f"haha {id}")
+                                    self.peers[addr]['container'][id] = cont
+                                    flag = False
+                                    res = "0"
+                                    break
+                                except:
+                                    print("????")
+
                             elif(isinstance(c, Folder)):
                                 if(isinstance(cont, File)):
-                                    path = c.get_file(cont.name).change_file(cont)
-                                    print(path.file_hash)
-                                    flag = False
-                                    res = "0"
-                                    break
+                                    print(5)
+                                    path = c.get_file(cont.path)
+                                    if(path is not None):
+                                        c.get_file(cont.path).change_file(cont)
+                                        print(path.file_hash)
+                                        flag = False
+                                        res = "0"
+                                        break
                                 elif(isinstance(cont, Folder)):
-                                    path = c.get_subfolder(cont.name).change_folder(cont)
-                                    flag = False
-                                    res = "0"
-                                    break
+                                    print(6)
+                                    path = c.get_subfolder(cont.path)
+                                    if(path is not None):
+                                        c.get_subfolder(cont.path).change_folder(cont)
+                                        print(path.file_hash)
+                                        flag = False
+                                        res = "0"
+                                        break
                                 
                         if(flag):
+                            print(10)
                             res = "True"
                             self.peers[addr]['container'].append(cont)
                         # print(cont.file_hash)
@@ -336,10 +351,15 @@ class Tracker:
                         client_socket.send(res.encode())
                         print(2)
                         client_socket.recv(1024)
-                        print(3)
+                        print("end")
                         client_socket.send("Server has received your file.".encode())
                     except Exception as e:
                         print(e)
+                        print(7)
+                        client_socket.send("Error".encode())
+                        print(8)
+                        client_socket.recv(1024)
+                        print(9)
                         client_socket.send("Server can't received your file.".encode())
 
                 elif command == 'help':

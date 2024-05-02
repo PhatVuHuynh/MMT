@@ -1287,12 +1287,16 @@ class Peer:
                 
             elif message == "UPLOAD FOLDER":
                 new_folder = tk_to_peer_q.get()
-                self.upload_folder(new_folder)
+                with self.file_list_lock:
+                    self.upload_folder(new_folder)
+                    print(self.client_to_tracker.recv(1024).decode())
                 gui.event_generate("<<DisplayList>>", when="tail")
                 
             elif message == "UPLOAD FILE":
                 new_file = tk_to_peer_q.get()
-                self.upload_file(new_file)
+                with self.file_list_lock:
+                    self.upload_file(new_file)
+                    print(self.client_to_tracker.recv(1024).decode())
                 gui.event_generate("<<DisplayList>>", when="tail")
                 
             elif message == "DOWNLOAD FILE":

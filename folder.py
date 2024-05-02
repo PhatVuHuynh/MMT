@@ -270,11 +270,11 @@ class Folder:
             subfolder_names = parts[:-1]
             # for subfolder_name in subfolder_names:
             #     subfolder_name += "/"
-            # print("////////")
-            # print(parts)
-            # print(file_name)
-            # print(subfolder_names)
-            # print("--------")
+            print("////////")
+            print(parts)
+            print(file_name)
+            print(subfolder_names)
+            print("--------")
             #First layer
             for file in self.files:
                 if (file.name == file_name) and isinstance(file, File) and ((hash is None) or (file.file_hash == hash)):
@@ -287,12 +287,12 @@ class Folder:
             for subfolder_name in subfolder_names:
                 found = False
                 # subfolder_name = subfolder_name + "/"
-                # print(subfolder_name)
-                # print("+++++++++")
+                print(subfolder_name)
+                print("+++++++++")
                 for folder in current_folder.child_folders:
-                    # print(folder.name)
+                    print(folder.name)
                     # print(folder.name == subfolder_name)
-                    # print("********")
+                    print("********")
                     if subfolder_name in folder.name:
                         current_folder = folder
                         found = True
