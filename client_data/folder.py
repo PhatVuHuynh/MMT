@@ -222,7 +222,8 @@ class Folder:
         print("////////")
         print(subfolder_names)
         print("--------")
-        subfolder_names.remove(subfolder_names[0])
+        if(len(subfolder_names) == 0):
+                subfolder_names.remove(subfolder_names[0])
 
         for subfolder_name in subfolder_names:
             found_subfolder = None
@@ -265,7 +266,8 @@ class Folder:
             for file in self.files:
                 if (file.name == file_name) and isinstance(file, File) and ((hash is None) or (file.file_hash == hash)):
                     return file
-            subfolder_names.remove(subfolder_names[0])
+            if(len(subfolder_names) == 0):
+                subfolder_names.remove(subfolder_names[0])
 
             # Traverse the subfolders
             current_folder = self

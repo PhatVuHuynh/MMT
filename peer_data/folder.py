@@ -201,18 +201,18 @@ class Folder:
         for folder in self.child_folders:
             folder.set_path(self.path)
     
-    def _calculate_hash(self, file_path)->str:
-        hash_sum = ""
-        with open(file_path, 'rb') as file:
-            piece_offset = 0
-            piece = file.read(PIECE_SIZE)
-            while piece:
-                piece_hash = hashlib.sha256(piece).hexdigest()
-                hash_sum += piece_hash
-                piece_offset += len(piece)
-                piece = file.read(PIECE_SIZE)
+    # def _calculate_hash(self, file_path)->str:
+    #     hash_sum = ""
+    #     with open(file_path, 'rb') as file:
+    #         piece_offset = 0
+    #         piece = file.read(PIECE_SIZE)
+    #         while piece:
+    #             piece_hash = hashlib.sha256(piece).hexdigest()
+    #             hash_sum += piece_hash
+    #             piece_offset += len(piece)
+    #             piece = file.read(PIECE_SIZE)
 
-        return hash_sum
+    #     return hash_sum
 
     def get_subfolder(self, subfolder_path: str):
         subfolder_path = subfolder_path.replace("\\", "/").strip().rstrip('/')
@@ -222,7 +222,8 @@ class Folder:
         print("////////")
         print(subfolder_names)
         print("--------")
-        subfolder_names.remove(subfolder_names[0])
+        if(len(subfolder_names) == 0):
+            subfolder_names.remove(subfolder_names[0])
 
         for subfolder_name in subfolder_names:
             found_subfolder = None
@@ -265,7 +266,9 @@ class Folder:
             for file in self.files:
                 if (file.name == file_name) and isinstance(file, File) and ((hash is None) or (file.file_hash == hash)):
                     return file
-            subfolder_names.remove(subfolder_names[0])
+                
+            if(len(subfolder_names) == 0):
+                subfolder_names.remove(subfolder_names[0])
 
             # Traverse the subfolders
             current_folder = self
