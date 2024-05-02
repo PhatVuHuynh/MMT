@@ -12,13 +12,13 @@ from folder import *
 
 #TODO: SEPERATE LOGIN WINDOW AND MAIN
 def timer_trigger():
-    root.after(10, timer_trigger)
+    root.after(1000, timer_trigger)
     timer_event()
 
 def timer_event():
-    pass
     #put function here to force it run each 10 ms
-
+    if request_list_flag: request_list()
+    
 def upload_folder(): #TODO
     folder_path = filedialog.askdirectory()
     print (f"upload {folder_path}")
@@ -39,21 +39,30 @@ def request_list():
 
 def display_list(event=None):
     def update_treeview(tree, folder, parent=''):
-        if isinstance(folder, Folder):
-        # Add the folder to the Treeview
-            folder_id = tree.insert(parent, 'end', text=folder.name, values=('',folder.status, 'Folder', folder.path))
-            folder.treeview_id = folder_id
-            # Add all files in the folder to the Treeview
-            for file in folder.files:
-                file_id = tree.insert(folder_id, 'end', text=file.name, values=(file.file_hash, file.status, 'File', file.path))
-                file.treeview_id = file_id
-            # Recursively add subfolders and their files
-            for subfolder in folder.child_folders:
-                update_treeview(tree, subfolder, folder_id)
-                
-        elif isinstance(folder, File):
-            folder_id = tree.insert(parent, 'end', text=folder.name, values=(folder.file_hash, folder.status, 'File', folder.path))
-            folder.treeview_id = folder_id
+        if folder.treeview_id is None:
+            if isinstance(folder, Folder):
+            # Add the folder to the Treeview
+                folder_id = tree.insert(parent, 'end', text=folder.name, values=('',folder.status, 'Folder', folder.path))
+                folder.set_treeview_id(folder_id)
+                # Add all files in the folder to the Treeview
+                for file in folder.files:
+                    update_treeview(tree, file, folder.treeview_id)
+                # Recursively add subfolders and their files
+                for subfolder in folder.child_folders:
+                    update_treeview(tree, subfolder, folder.treeview_id)
+            elif isinstance(folder, File):
+                folder_id = tree.insert(parent, 'end', text=folder.name, values=(folder.file_hash, folder.status, 'File', folder.path))
+                folder.set_treeview_id(folder_id)
+        
+        else: #not none
+            if isinstance(folder, Folder):
+                tree.item(folder.treeview_id, values=(tree.item(folder.treeview_id, 'values')[0], "Hello", tree.item(folder.treeview_id, 'values')[2], tree.item(folder.treeview_id, 'values')[3]))
+                for file in folder.files:
+                    update_treeview(tree, file, folder.treeview_id)
+                for subfolder in folder.child_folders:
+                    update_treeview(tree, subfolder, folder.treeview_id)
+            elif isinstance(folder, File):
+                tree.item(folder.treeview_id, values=(tree.item(folder.treeview_id, 'values')[0], "Hello", tree.item(folder.treeview_id, 'values')[2], tree.item(folder.treeview_id, 'values')[3]))
             
     global tree
     global peer
@@ -97,10 +106,13 @@ def send_validate_login(event = None):
 
 def receive_validate_login(event=None):
     connect_result = peer_to_tk_q.get(block=False)
+    global request_list_flag
     if connect_result == True:
         show_main()
+        request_list_flag = True
     else:
         messagebox.showerror("Connect Field", "Cannot connect to the Tracker")
+        request_list_flag = False
 
 
 
@@ -338,7 +350,8 @@ if __name__ == "__main__":
     root.bind("<<ReceiveLogin>>", receive_validate_login)
     root.bind("<<DisplayList>>", display_list)
     #create timer
-    root.after(10, timer_trigger)
+    root.after(100, timer_trigger)
+    request_list_flag = False
     
     backend_thread.start()
     root.mainloop()

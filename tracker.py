@@ -266,7 +266,9 @@ class Tracker:
                             
                         cont = data['metainfo']
                         
+                        print(cont.path)
                         for c in self.peers[addr]['container']:
+                            print(c.path)
                             if(c.path == cont.path):
                                 self.peers[addr]['container'][self.peers[addr]['container'].index(c)] = cont
                                 flag = False
@@ -280,12 +282,14 @@ class Tracker:
                                     res = "0"
                                     break
                                 elif(isinstance(cont, Folder)):
+                                    print(5)
                                     path = c.get_subfolder(cont.name).change_folder(cont)
                                     flag = False
                                     res = "0"
                                     break
                                 
                         if(flag):
+                            print (6)
                             res = "True"
                             self.peers[addr]['container'].append(cont)
                         # print(cont.file_hash)
