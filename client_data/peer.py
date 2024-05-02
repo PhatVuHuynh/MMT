@@ -4,6 +4,10 @@ import threading, queue
 from folder import *
 import os
 import tqdm
+import queue
+import tkinter as tk
+from folder import *
+import tqdm, time
 
 TRACKER_IP = ''
 TRACKER_PORT = None
@@ -13,57 +17,69 @@ FORMAT = 'utf-8'
 MAX_LISTEN = 100
 DOWNLOAD_PATH = "./download/"
 
-
-# import sched
-# import time
-
-# # Create a scheduler object
-# scheduler = sched.scheduler(time.time, time.sleep)
-
-# # Define a function to be scheduled
-# def print_message(current_size, total_size):
-#     print(f"{current_size} / {total_size}")
-
-# # Schedule the task to be executed every 5 seconds
-# def repeat_task():
-#     i = 0
-#     while i < 5:
-#         scheduler.enter(0.001, 1, print_message)
-#         scheduler.run()
-#     # repeat_task()
-
 class Peer:
     # init peer
-    def __init__(self, tracker_host, tracker_port, my_ip, my_port, files=[]):
+    def __init__(self,  my_ip, my_port, files = None, tracker_host = None, tracker_port = None):
         self.tracker_host = tracker_host
-        self.tracker_port = int(tracker_port)
+        self.tracker_port = tracker_port
         self.my_ip = my_ip
         self.my_port = int(my_port)
+        
+        if files is None:
+            files = []
+            
+        self.files = files
         self.container = files
         self.file_list_lock = threading.Lock()
         self.part_data_lock = threading.Lock()
-        # self.update = False
-        # self.hashes = []
-        # self.sizes = []
+        self.request_lock = threading.Lock()
 
-        # connect to tracker
-        flag = self.connect_tracker()
-        if(flag):
-            self.register_with_tracker()
 
-            if(os.path.exists(DOWNLOAD_PATH) == False):
-                os.mkdir(DOWNLOAD_PATH)
-            
-            # socket to connect other peer
-            self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.server_socket.bind((self.my_ip, self.my_port))
-            self.server_socket.listen(MAX_LISTEN)
-            
-            # while True:   
-            #     client_socket, addr = self.server_socket.accept()
-            threading.Thread(target=self.accept_connections, daemon=True).start()
-
+        # sizes, hashes = [],[]
+        # for file in self.files:
+        #     sizes.append(os.path.getsize(file))
+        #     part_hash = self.create_hash_file(file)
+        #     hashes.append(part_hash)
         
+        # self.hashes = hashes
+        # self.sizes = sizes
+        
+        # connect to tracker
+        if (tracker_host is not None) or (tracker_port is not None):
+            try: 
+                self.tracker_port = int(tracker_port)
+            except ValueError:
+                print ("Tracker port is not an integer")
+                exit()
+            flag = self.connect_tracker(tracker_host=self.tracker_host, tracker_port=self.tracker_port)
+            if(flag):
+                self.register_with_tracker()
+            
+                # if(os.path.exists(SHARE_PATH) == False):
+                #     os.mkdir(SHARE_PATH)
+                # else:
+                #     metainfo = self.create_metainfo(SHARE_PATH)
+                    
+                #     # print(metainfo)
+
+                #     message = json.dumps({'command': 'upload', 'metainfo': metainfo}).encode()
+                #     # print(message)
+                #     self.client_to_tracker.send(message)
+
+                #     response = self.client_to_tracker.recv(1024).decode()
+                #     print(response)
+                
+                if(os.path.exists(DOWNLOAD_PATH) == False):
+                    os.mkdir(DOWNLOAD_PATH)
+            
+                # socket to connect other peer
+                self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.server_socket.bind((self.my_ip, self.my_port))
+                self.server_socket.listen(MAX_LISTEN)
+                
+                # while True:   
+                #     client_socket, addr = self.server_socket.accept()
+                threading.Thread(target=self.accept_connections, daemon=False).start()
     
     # def print_container(self):
     #     for c in self.container:
@@ -89,29 +105,49 @@ class Peer:
     def get_container(self):
         return self.container
 
-    def connect_tracker(self):
+    def connect_tracker(self, tracker_host, tracker_port ):
         try:
             self.client_to_tracker = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             # print(self.tracker_host)
             # print(self.tracker_port)
-            self.client_to_tracker.connect((self.tracker_host, self.tracker_port))
+            self.client_to_tracker.connect((tracker_host, tracker_port))
             print("Connect to tracker successfully.")
             return True
-        except:
+        except Exception as e:
+            print (tracker_host)
+            print (tracker_port)
+            print (e)
             print("Can't connect to tracker")
             return False
 
     def register_with_tracker(self):
-        message = json.dumps({
-            'command': 'register',
-            'container': self.container,
-            'ip': self.my_ip,
-            'port': self.my_port,
-            # 'sizes': self.sizes,
-            # 'hashes': self.hashes
-        })
-        self.client_to_tracker.send(message.encode())
-        self.client_to_tracker.recv(PIECE_SIZE)
+        try:
+            message = json.dumps({
+                'command': 'register',
+                'container': self.container,
+                'ip': self.my_ip,
+                'port': self.my_port,
+                # 'sizes': self.sizes,
+                # 'hashes': self.hashes
+            })
+            self.client_to_tracker.send(message.encode())
+            self.client_to_tracker.recv(PIECE_SIZE)
+            threading.Thread(target=self.pulsecheck, args=(self.client_to_tracker, ), daemon=True).start()
+        except Exception as e:
+            print(f"Failed to connect or send data to the tracker: {e}")    
+
+    # Kiểm tra peer còn onl hay không
+    def pulsecheck(self, client_socket):
+        try:
+            while True:
+                heartbeat_msg = json.dumps({'command': 'alive'})
+                client_socket.send(heartbeat_msg.encode())
+                time.sleep(10)  # interval can be adjusted
+        except Exception as e:
+            print(f"Failed to connect tracker: {e}")
+        finally:
+            client_socket.close()
+            print("Connection to tracker has been closed.")
 
     #Tạo tổng hash của file_name
     def create_hash_file(self, file_name):
@@ -147,7 +183,7 @@ class Peer:
         message = json.dumps({'command': 'request', 'file': filename, 'hash': file_hash})
         # print(1)
         print(message)
-        with self.part_data_lock:
+        with self.request_lock:
             self.client_to_tracker.send(message.encode())
             response = self.client_to_tracker.recv(PIECE_SIZE)
         if not response:
@@ -158,24 +194,29 @@ class Peer:
         except Exception as e:
             print(e)
             return None
-
+        
+    # lấy info peer khi tải lỗi       
+    def request_peer_info_again(self, filename, file_hash):
+        message = json.dumps({'command': 'request', 'file': filename, 'hash': file_hash})
+        # print(1)
+        print(message)
+        with self.request_lock:
+            self.client_to_tracker.send(message.encode())
+            response = self.client_to_tracker.recv(PIECE_SIZE)
+        if not response:
+            print("No data received")
+            return None
+        try:
+            return pickle.loads(response)
+        except Exception as e:
+            print(e)
+            return None
+        
     # receive file (dữ liệu nhận ghi vào filename)
-    def download_piece(self, ip_sender, port_sender, filename, start, end, part_data, hash):
+    def download_piece(self, ip_sender, port_sender, filename, start, end, part_data, hash, status):
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.connect((ip_sender, port_sender))
-
-            # s.send(filename.encode())
-
-            # s.recv(PIECE_SIZE)
-
-            # s.send(str(start).encode())
-
-            # s.recv(PIECE_SIZE)
-
-            # s.send(str(end).encode())
-
-            # print(start, " ", end)
 
             # Sending filename, start, and end as a single message separated by a special character
             message = f"{filename}*{start}*{end}*{hash}"
@@ -197,7 +238,7 @@ class Peer:
 
             # file = open(received_file_name, "wb")
 
-            arr = []
+            # arr = []
             done = False
             progress = tqdm.tqdm(unit="B", unit_scale=True, unit_divisor=1000, total=int(end-start))
             
@@ -205,48 +246,73 @@ class Peer:
             
             # Nhận dữ liệu từ sender
             buffer_size = PIECE_SIZE
-            while not done:
-                # part_bytes = b""
-                data = s.recv(buffer_size)
-                if data[-5:] == b"<END>":
-                    done = True
-                    # part_bytes = data[:-5]
-                    arr.append(data[:-5])
-                else:
-                    # part_bytes = data
-                    arr.append(data)
-                # arr.append(part_bytes)
-                progress.update(len(data))
+            # while not done:
+            #     # part_bytes = b""
+            #     data = s.recv(buffer_size)
+            #     if data[-5:] == b"<END>":
+            #         done = True
+            #         # part_bytes = data[:-5]
+            #         arr.append(data[:-5])
+            #     else:
+            #         # part_bytes = data
+            #         arr.append(data)
+            #     # arr.append(part_bytes)
+            #     progress.update(len(data))
             
             # for file_data in arr:
             #     file_bytes += file_data
-            print(f"start merge piece")
-            
+            # print(f"start merge piece")
+            disconnect = False
             file_path = f"{filename}_{start}.bin"
             file_path = file_path.replace("/","_")
             
             with open(file_path, 'wb') as file_part:
-                for item in arr:
-                    file_part.write(item)
+                while not done:
+                    data = s.recv(buffer_size)
+                    if not data:
+                        disconnect = True
+                        break
+                    if data[-5:] == b"<END>":
+                        done = True
+                        file_part.write(data[:-5])
+                    else:
+                        file_part.write(data)
+                    progress.update(len(data))
             file_part.close()
-            print(f"Successfully wrote array to file: {file_path}")
-            
-            print("end merge piece")
-            # end_time = time.time()
-            
-            # Ghi dữ liệu piece
-            print('start add with lock')
 
-            with self.part_data_lock:
-                print("lock")
-                part_data.append((start, file_path))
-                print("open")
-                s.send("done".encode())
+            if disconnect == False:
+                print(f"Successfully wrote to file: {file_path}")
+                print('start add with lock')
+                with self.part_data_lock:
+                    status.append((start, end, "Completed"))
+                    part_data.append((start, file_path))
+                print('end add with lock')
+            else:
+                os.remove(file_path)
+                with self.part_data_lock:
+                    status.append((start, end, "Failed"))
+                print(f"Error in download_file")
+            # print(f"Successfully wrote array to file: {file_path}")
+            
+            # print("end merge piece")
+            # # end_time = time.time()
+            
+            # # Ghi dữ liệu piece
+            # print('start add with lock')
 
-            print('end add with lock')
+            # with self.part_data_lock:
+            #     print("lock")
+            #     part_data.append((start, file_path))
+            #     print("open")
+            #     s.send("done".encode())
+
+            # print('end add with lock')
             # file.write(file_bytes)
 
         except Exception as e:
+            os.remove(file_path)
+            with self.part_data_lock:
+                status.append((start, end, "Failed"))
             print(f"Error in download_file: {e}")
         finally:
             s.close()
@@ -286,26 +352,16 @@ class Peer:
     # chấp nhận kết nối
     def accept_connections(self):
         while True:
-            client_socket, addr = self.server_socket.accept()
-            threading.Thread(target=self.handle_peer, args=(client_socket,), daemon=False).start()
+            try:
+                client_socket, addr = self.server_socket.accept()
+                threading.Thread(target=self.handle_peer, args=(client_socket,), daemon=False).start()
+            except Exception as e:
+                print(f"Failed to accept a connection: {e}")
+                break
 
     # send file
     def handle_peer(self, client_socket):
         try:
-            # filename = client_socket.recv(PIECE_SIZE).decode()
-            # print(filename)
-
-            # client_socket.send("done".encode())
-
-            # start = client_socket.recv(PIECE_SIZE).decode()
-
-            # client_socket.send("done".encode())
-
-            # end = client_socket.recv(PIECE_SIZE).decode()
-            
-            # print(start," ", end)
-            # print(type(start))
-
             data = client_socket.recv(PIECE_SIZE).decode()
             # print(data)
             if data:
@@ -352,36 +408,50 @@ class Peer:
                 # client_socket.sendall(f"{file_size:<PIECE_SIZE}".encode())
                     # path = os.path.join(SHARE_PATH, f)
             print(c.path)
-            with open(path, 'rb') as file:
-                file.seek(start)
-                numbytes = end - start
-                buffer_size = PIECE_SIZE
-                while numbytes:
-                    data = file.read(min(numbytes, buffer_size))
-                    client_socket.send(data)
-                    # print(numbytes)
-                    # print(data)
-                    # print(len(data))
-                    # input()
-                    if(len(data) == 0):
-                        break
-                    numbytes -= len(data)
-                # file.seek(start)
-                # numbytes = end - start
+            if(path != ""):
+                with open(path, 'rb') as file:
+                    file.seek(start)
+                    numbytes = end - start
+                    buffer_size = 1024*1024
+                    while numbytes:
+                        data = file.read(min(numbytes, buffer_size))
+                        if not data:
+                            break
+                        client_socket.send(data)
+                        numbytes -= len(data)
+                    client_socket.send(b"<END>")
+                # file.close()
 
-                # #####
-                # data = file.read(numbytes)
-                # # print(data)
-                # client_socket.sendall(data)
-                # #####
+                # with open(path, 'rb') as file:
+                #     file.seek(start)
+                #     numbytes = end - start
+                #     buffer_size = PIECE_SIZE
+                #     while numbytes:
+                #         data = file.read(min(numbytes, buffer_size))
+                #         client_socket.send(data)
+                #         # print(numbytes)
+                #         # print(data)
+                #         # print(len(data))
+                #         # input()
+                #         if(len(data) == 0):
+                #             break
+                #         numbytes -= len(data)
+                #     # file.seek(start)
+                #     # numbytes = end - start
 
-                # print("end")
-                client_socket.send(b"<END>")
-                if(client_socket.recv(PIECE_SIZE).decode() == "done"):
-                    pass
-                else:
-                    print("data wrong")
-            file.close()
+                #     # #####
+                #     # data = file.read(numbytes)
+                #     # # print(data)
+                #     # client_socket.sendall(data)
+                #     # #####
+
+                #     # print("end")
+                #     client_socket.send(b"<END>")
+                #     if(client_socket.recv(PIECE_SIZE).decode() == "done"):
+                #         pass
+                #     else:
+                #         print("data wrong")
+                # file.close()
 
         except Exception as e:
             print(f"Error: {e}")
@@ -579,6 +649,7 @@ class Peer:
                     print(1)
                     if(self.container[i].status == "Downloaded"):
                         print("Already downloaded.")
+                        return
                     else:
                     # if(c.status == "Downloading"):
                         if(self.container[i].path == None):
@@ -591,6 +662,7 @@ class Peer:
                         print(2)
                         if(path.status == "Downloaded"):
                             print("Already downloaded.")
+                            return
                         else:
                         # if(c.status == "Downloading"):
                             if(path.path == None):
@@ -601,6 +673,7 @@ class Peer:
                     print(3)
                     if(self.container[i].status == "Downloaded"):
                         print("Already downloaded.")
+                        return
                     else:
                     # if(c.status == "Downloading"):
                         if(self.container[i].path == None):
@@ -612,6 +685,7 @@ class Peer:
                         print(4)
                         if(path.status == "Downloaded"):
                             print("Already downloaded.")
+                            return
                         else:
                         # if(c.status == "Downloading"):
                             if(path.path == None):
@@ -635,26 +709,32 @@ class Peer:
         message = json.dumps({'command': 'list'})
             
         self.client_to_tracker.send(message.encode())
-        
+        print (f"dccmm")
         response = self.client_to_tracker.recv(PIECE_SIZE)
+        print (f"DCCM")
+        try:
+            share_list = pickle.loads(response)
+        except Exception as e:
+            print(f"Error unpickling data: {e}")
         
-        share_list = pickle.loads(response)
-
-        for share in share_list:
+        for i in range(len(share_list)):
             try:
-                print(share.name)
-                id = self.container.index(share)
+                print(share_list[i].name)
+                id = self.container.index(share_list[i])
                 print(id)
                 if(id > -1):
-                    share.change_status("Downloaded")
+                    share_list[i] = self.container[id]
+                    if os.path.exists(self.container[id].path):
+                        share_list[i].change_status("Downloaded")
             except Exception as e:
                 print(e)
-                share.change_status("")
-                share.remove_path()
+                share_list[i].change_status("")
+                share_list[i].remove_path()
             # print(share.name)
             # print(share.status)
             # print(share.path)
             # print("-------")
+        # self.container=share_list
         return share_list
     
     def upload_folder(self, folder: Folder): #TODO: Gửi folder lên tracker
@@ -731,8 +811,8 @@ class Peer:
         # if(out):
         #     print(f"You already have {file_name}.")
         #     return
-        
-        self.manage_downloads([file_name], [hash])
+        with self.file_list_lock:
+            self.manage_downloads([file_name], [hash])
     
     def request_download_folder(self, folder_name:str):
         path = os.path.join(DOWNLOAD_PATH, folder_name)
@@ -795,8 +875,29 @@ class Peer:
         if(out):
             print(f"You already have {folder_name}.")
             return
-            
-        self.manage_downloads(temp_list, hash_list)
+        
+        filename = []
+        for f in temp_list:
+            # filename.append(f)                        
+            name = f.name
+            root_folder = f.parent_folder
+            temp_folder = f.parent_folder
+            # print("----")
+            # print(name)
+            # print(f.parent_folder)
+            while root_folder is not None:
+                # print("----")
+                # print(name)
+                name = f"{root_folder.name}{name}"
+                
+                root_folder = temp_folder.parent_folder
+                temp_folder = root_folder
+            # f.name = name
+            filename.append(name)
+            hash_list.append(f.file_hash)
+
+        with self.file_list_lock:
+            self.manage_downloads(filename, hash_list)
         # peer_req = self.request_peerS_info(folder_name)
         # print(peer_req)
         # for p in peer_req['peers']:
@@ -804,6 +905,9 @@ class Peer:
         # filename.remove(file)
 
     def sen_process(self, data, q):
+        # print(data)
+        # data = data.split(" ")
+        # cmd = data[0].strip().lower()
         global_response = ""
         
         cmd_id = data.find(" ")
@@ -867,6 +971,7 @@ class Peer:
             # # self.response = peer_list
             # global_response = peer_list
             # print(peer_list)
+            
         elif cmd == "upload":
             file_paths = remain_data
 
@@ -1072,7 +1177,7 @@ class Peer:
                                         #     name = f"{root_folder.name}{name}"
                                         #     root_folder = temp_folder.parent_folder
                                         #     temp_folder = root_folder
-                                        path.get_file(file).change_status("Downloading")
+                                        path.change_status("Downloading")
                                         temp_list.append(path)
                                         remove_list.append(file)
                                         # hash_list.append(path.file_hash)
@@ -1150,6 +1255,8 @@ class Peer:
         while True:
             data = input("> ")
             # data = data.split(" ")
+
+            # print("endloop")
             q = queue.Queue()
             thrSen = threading.Thread(target=self.sen_process, args=(data, q))
             thrSen.start()
@@ -1159,12 +1266,80 @@ class Peer:
             print(answer)
             if(answer == "Disconnected from the server."):
                 break
-    
-    def download_file(self, file_name, part_data, file_hash=""):
+            
+            
+    def run(self, gui:tk.Tk, tk_to_peer_q:queue.Queue, peer_to_tk_q:queue.Queue) -> None: #similar to send, wait for a command
+        q = queue.Queue()
+        while True:
+            message = tk_to_peer_q.get() #block here
+            print (message)
+            if message is None:  # None is our signal to exit the thread
+                break
+            
+            elif message == "CONNECT":
+                tracker_host, tracker_port = tk_to_peer_q.get()
+                
+                result = self.connect_tracker(tracker_host=tracker_host, tracker_port=tracker_port)
+                if(result):
+                    self.register_with_tracker()
+                    
+                    if(os.path.exists(DOWNLOAD_PATH) == False):
+                        os.mkdir(DOWNLOAD_PATH)
+                
+                    self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    self.server_socket.bind((self.my_ip, self.my_port))
+                    self.server_socket.listen(MAX_LISTEN)
+                    
+                    threading.Thread(target=self.accept_connections, daemon=True).start()
+                peer_to_tk_q.put(result)
+                gui.event_generate("<<ReceiveLogin>>", when="tail")
+                
+            elif message == "CONSOLE":
+                message = tk_to_peer_q.get() #block here
+                self.sen_process (data=message, q=q)
+                response = q.get(timeout=5)
+                peer_to_tk_q.put(response)
+                
+            elif message == "GET LIST":
+                # self.sen_process (data="list", q=q)
+                with self.file_list_lock:
+                    self.container = self.request_file_list()
+                gui.event_generate("<<DisplayList>>", when="tail")
+                
+            elif message == "UPLOAD FOLDER":
+                new_folder = tk_to_peer_q.get()
+                with self.file_list_lock:
+                    self.upload_folder(new_folder)
+                    print(self.client_to_tracker.recv(1024).decode())
+                gui.event_generate("<<DisplayList>>", when="tail")
+            elif message == "UPLOAD FILE":
+                new_file = tk_to_peer_q.get()
+                with self.file_list_lock:
+                    self.upload_file(new_file)
+                    print(self.client_to_tracker.recv(1024).decode())
+                gui.event_generate("<<DisplayList>>", when="tail")
+            elif message == "DOWNLOAD FILE":
+                file_hash, file_name = tk_to_peer_q.get()
+                print(file_hash)
+                print(type(file_hash))
+                print(file_name)
+                print(type(file_name))
+                self.request_download_file(file_name=file_name, hash=file_hash)
+            elif message == 'DOWNLOAD FOLDER':
+                folder_name = tk_to_peer_q.get()
+                self.request_download_folder(folder_name)
+            else:
+                pass
+            
+
+    # def download_file(self, file_name, part_data):
+        # peer_info = self.request_peerS_info(file_name)
+    def download_file(self, file_name, file_hash=""):
         peer_info = self.request_peerS_info(file_name, file_hash)
         # print(peer_info)
         if peer_info['peers']:
             size, pieces, hash = 0,0,''
+            status, part_data = [], []
             # print(peer_info)
             for p in peer_info['peers']:
                 print(p['ip'], " ", p['port'], " ", p['file'], " ", p['size'], p['pieces'])
@@ -1180,8 +1355,9 @@ class Peer:
                 port_list.append(p['port'])
             
             n = len(ip_list)
-            data = b''
+            
             threads = []
+            start_time = time.time()
 
             if (n == 1):
                 # mặc định 3 luồng xử lí cùng, 
@@ -1193,7 +1369,7 @@ class Peer:
                         start_piece.append(i)
                         end_piece.append(i+1)
                     for i in range(pieces):
-                        thread = threading.Thread(target=self.download_piece, args=(ip_list[0], port_list[0], file_name, start_piece[i]*PIECE_SIZE, end_piece[i]*PIECE_SIZE, part_data, file_hash))
+                        thread = threading.Thread(target=self.download_piece, args=(ip_list[0], port_list[0], file_name, start_piece[i]*PIECE_SIZE, end_piece[i]*PIECE_SIZE, part_data, file_hash, status))
                         threads.append(thread)
                         thread.start()
                     # for thread in threads:
@@ -1208,12 +1384,12 @@ class Peer:
                     print(f"Downloading file from {ip_list[0]}:{port_list[0]}")
                     for i in range(number_thread):
                         if i < number_thread - 1:
-                            thread = threading.Thread(target=self.download_piece, args=(ip_list[0], port_list[0], file_name, start_piece[i]*PIECE_SIZE, end_piece[i]*PIECE_SIZE, part_data, file_hash))
+                            thread = threading.Thread(target=self.download_piece, args=(ip_list[0], port_list[0], file_name, start_piece[i]*PIECE_SIZE, end_piece[i]*PIECE_SIZE, part_data, file_hash, status))
                         else:
                             if lastpiece_size == 0:
-                                thread = threading.Thread(target=self.download_piece, args=(ip_list[0], port_list[0], file_name, start_piece[i]*PIECE_SIZE, end_piece[i]*PIECE_SIZE, part_data, file_hash))
+                                thread = threading.Thread(target=self.download_piece, args=(ip_list[0], port_list[0], file_name, start_piece[i]*PIECE_SIZE, end_piece[i]*PIECE_SIZE, part_data, file_hash, status))
                             else:
-                                thread = threading.Thread(target=self.download_piece, args=(ip_list[0], port_list[0], file_name, start_piece[i]*PIECE_SIZE, (end_piece[i]-1)*PIECE_SIZE + lastpiece_size, part_data, file_hash))
+                                thread = threading.Thread(target=self.download_piece, args=(ip_list[0], port_list[0], file_name, start_piece[i]*PIECE_SIZE, (end_piece[i]-1)*PIECE_SIZE + lastpiece_size, part_data, file_hash, status))
                         threads.append(thread)
                         thread.start()
                         
@@ -1228,7 +1404,7 @@ class Peer:
                         start_piece.append(i)
                         end_piece.append(i+1)
                     for i in range(pieces):
-                        thread = threading.Thread(target=self.download_piece, args=(ip_list[i], port_list[i], file_name, start_piece[i]*PIECE_SIZE, end_piece[i]*PIECE_SIZE, part_data, file_hash))
+                        thread = threading.Thread(target=self.download_piece, args=(ip_list[i], port_list[i], file_name, start_piece[i]*PIECE_SIZE, end_piece[i]*PIECE_SIZE, part_data, file_hash, status))
                         threads.append(thread)
                         thread.start()
                     # for thread in threads:
@@ -1247,12 +1423,12 @@ class Peer:
                     for i in range(len(ip_list)):
                         print(f"Downloading file from {ip_list[i]}:{port_list[i]}")
                         if i < len(ip_list) - 1:
-                            thread = threading.Thread(target=self.download_piece, args=(ip_list[i], port_list[i], file_name, start_piece[i]*PIECE_SIZE, end_piece[i]*PIECE_SIZE, part_data, file_hash))
+                            thread = threading.Thread(target=self.download_piece, args=(ip_list[i], port_list[i], file_name, start_piece[i]*PIECE_SIZE, end_piece[i]*PIECE_SIZE, part_data, file_hash, status))
                         else:
                             if lastpiece_size == 0:
-                                thread = threading.Thread(target=self.download_piece, args=(ip_list[i], port_list[i], file_name, start_piece[i]*PIECE_SIZE, end_piece[i]*PIECE_SIZE, part_data, file_hash))
+                                thread = threading.Thread(target=self.download_piece, args=(ip_list[i], port_list[i], file_name, start_piece[i]*PIECE_SIZE, end_piece[i]*PIECE_SIZE, part_data, file_hash, status))
                             else:
-                                thread = threading.Thread(target=self.download_piece, args=(ip_list[i], port_list[i], file_name, start_piece[i]*PIECE_SIZE, (end_piece[i]-1)*PIECE_SIZE + lastpiece_size, part_data, file_hash))
+                                thread = threading.Thread(target=self.download_piece, args=(ip_list[i], port_list[i], file_name, start_piece[i]*PIECE_SIZE, (end_piece[i]-1)*PIECE_SIZE + lastpiece_size, part_data, file_hash, status))
                         threads.append(thread)
                         thread.start()
                         
@@ -1261,14 +1437,93 @@ class Peer:
             for thread in threads:
                 thread.join()
 
-            part_data.sort(key=lambda x: x[0])
+            done = True
+            fail_start, fail_end = [],[]
+            # for siuu in status:
+            #     print(siuu[2],end ='\n')
+            for stt in status:
+                if stt[2] == "Failed":
+                    done = False
+                    fail_start.append(stt[0])
+                    fail_end.append(stt[1])
+            fail_len = len(fail_start) 
+            
+            # print(done, end='\n')
+            if done == False:
+                while not done:
+                    new_info = self.request_peer_info_again(file_name, file_hash)
+                    if new_info and new_info['peers']:
+                        new_threads = []
+                        status = []
+                        new_ip_list = []
+                        new_port_list = []
 
-            try:
-                file = p['file']
-                file.name = file_name
-                if(file_hash == ""):
-                    if file_hash == hash:
+                        for np in new_info['peers']:
+                            new_ip_list.append(np['ip'])
+                            new_port_list.append(np['port'])
+                        new_len = len(new_ip_list)
+
+                        #to fix bug
+                        # for ankara in range(new_len):
+                        #     print(new_ip_list[ankara]," ", new_port_list[ankara])
+
+                        if new_len < fail_len:
+                            k = 0
+                            for index in range(fail_len):
+                                new_thread = threading.Thread(target=self.download_piece, args=(new_ip_list[k], new_port_list[k], file_name, fail_start[index], fail_end[index] , part_data, file_hash, status))
+                                k += 1
+                                if k == new_len:
+                                    k = 0
+                                new_threads.append(new_thread)
+                                new_thread.start()
+                            # for newthread in new_threads:
+                            #     newthread.join()
+                        else:
+                            k = 0
+                            for index in range(fail_len):
+                                new_thread = threading.Thread(target=self.download_piece, args=(new_ip_list[k], new_port_list[k], file_name, fail_start[index], fail_end[index] , part_data, file_hash, status))
+                                k += 1
+                                new_threads.append(new_thread)
+                                new_thread.start()
+                        for newthread in new_threads:
+                            newthread.join()
+
+                        done = True
+                        fail_start, fail_end = [],[]
+                        for newstt in status:
+                            if newstt[2] == "Failed":
+                                done = False
+                                fail_start.append(newstt[0])
+                                fail_end.append(newstt[1])
+                        fail_len = len(fail_start)
+                    else:
+                        print("No peer found with the requested file.")
+                        break
+
+            if done == True:
+                part_data.sort(key=lambda x: x[0])
+                try:
+                    file = p['file']
+                    file.name = file_name
+                    if(file_hash == ""):
+                        if file_hash == hash:
+                                
+                            path = os.path.join(DOWNLOAD_PATH, file_name)
+                            print(path)
+                            try:
+                                if(os.path.exists(os.path.dirname(path)) == False):
+                                    os.mkdir(os.path.dirname(path))
+                            except:
+                                os.makedirs(os.path.dirname(path))
                             
+                            with self.file_list_lock:
+                                file.status = f"Downloaded"
+                                self.update_contain(file)
+                            print(f"File {file_name} has been downloaded.")
+                        else:
+                            print(f"Hash difference.")
+                    else:
+                        hash_sum = ""
                         path = os.path.join(DOWNLOAD_PATH, file_name)
                         print(path)
                         try:
@@ -1276,57 +1531,45 @@ class Peer:
                                 os.mkdir(os.path.dirname(path))
                         except:
                             os.makedirs(os.path.dirname(path))
-                        
-                        with self.file_list_lock:
-                            file.status = f"Downloaded"
-                            self.update_contain(file)
-                        print(f"File {file_name} has been downloaded.")
-                    else:
-                        print(f"Hash difference.")
-                else:
-                    hash_sum = ""
-                    path = os.path.join(DOWNLOAD_PATH, file_name)
-                    print(path)
-                    try:
-                        if(os.path.exists(os.path.dirname(path)) == False):
-                            os.mkdir(os.path.dirname(path))
-                    except:
-                        os.makedirs(os.path.dirname(path))
-                    with open(path, 'wb') as result_file:
-                        # print(part_data)
-                        for _ , file_bin in part_data:
-                            # print(file_bin)
-                            with open(file_bin, 'rb') as file_read:
-                                while True:
-                                    chunk = file_read.read(PIECE_SIZE)
-                                    # print(chunk)
-                                    if not chunk:
-                                        with self.file_list_lock:
-                                            file.status = f"Downloaded"
-                                            self.update_contain(file)
-                                        break
-                                    else:
-                                        piece_hash = hashlib.sha256(chunk).hexdigest()
-                                        hash_sum += piece_hash
-                                        result_file.write(chunk)
-                                        # print_message(result_file.tell(), size)
-                                        percent = round(float(result_file.tell() / size * 100))
-                                        if(percent == 100):
-                                            file.status = f"Downloaded"
+                        with open(path, 'wb') as result_file:
+                            # print(part_data)
+                            for _ , file_bin in part_data:
+                                # print(file_bin)
+                                with open(file_bin, 'rb') as file_read:
+                                    while True:
+                                        chunk = file_read.read(PIECE_SIZE)
+                                        # print(chunk)
+                                        if not chunk:
+                                            with self.file_list_lock:
+                                                file.status = f"Downloaded"
+                                                self.update_contain(file)
+                                            break
                                         else:
-                                            file.status = f"Downloading: {percent}"
-                                        # print(file.status)
-                                        with self.file_list_lock:
-                                            self.update_contain(file)
-                            os.remove(file_bin)
-                    result_file.close()
+                                            piece_hash = hashlib.sha256(chunk).hexdigest()
+                                            hash_sum += piece_hash
+                                            result_file.write(chunk)
+                                            # print_message(result_file.tell(), size)
+                                            percent = round(float(result_file.tell() / size * 100))
+                                            if(percent == 100):
+                                                file.status = f"Downloaded"
+                                            else:
+                                                file.status = f"Downloading: {percent}"
+                                            # print(file.status)
+                                            with self.file_list_lock:
+                                                self.update_contain(file)
+                                os.remove(file_bin)
+                        result_file.close()
 
-                    if(hash_sum == hash):
-                        print(f"File {file_name} has been downloaded.")
-                    else:
-                        print(f"Hash difference.")
-            except Exception as e:
-                print(e)
+                        end_time = time.time()
+
+                        total_time = end_time - start_time
+
+                        if(hash_sum == hash):
+                            print(f"File {file_name} has been downloaded within {total_time}.")
+                        else:
+                            print(f"Hash difference.")
+                except Exception as e:
+                    print(e)
             
         else:
             print("No peer found with the requested file.")
@@ -1339,7 +1582,7 @@ class Peer:
             # if(hash == ""):
             #     thread = threading.Thread(target=self.download_file, args=(file_name,[]))
             # else:
-            thread = threading.Thread(target=self.download_file, args=(file_name,[], hash_list[requested_files.index(file_name)]))
+            thread = threading.Thread(target=self.download_file, args=(file_name, hash_list[requested_files.index(file_name)]))
 
             threads.append(thread)
             thread.start()
@@ -1374,3 +1617,11 @@ if __name__ == "__main__":
     peer.sen()
     print("end")
     # sys.exit()
+'''
+peer1 container không có gì
+peer 2 upload a
+peer 3 uplaod b
+request file list -> a, b
+
+self.container = a, b, nhưng mà status a ,b = rỗng
+'''

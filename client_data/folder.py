@@ -35,10 +35,14 @@ class File:
         # if test: print (f"CREATING file name \"{self.name}\" with the path \"{self.path}\" in parent \"{self.parent_folder.name}\"")
     def __eq__(self, other):
         if isinstance(other, File):
-            return self.path == other.path
+            if (self.name == other.name) and (self.file_hash == other.file_hash):
+                return True
+            else: return False
             # and self.path == other.path and self.parent_folder == other.parent_folder and self.file_hash == other.file_hash and self.status == other.status
         return False
-    
+    def set_treeview_id(self, new_id):
+        self.treeview_id = new_id
+        
     def remove_path(self):
         self.path = None
 
@@ -89,6 +93,8 @@ class Folder:
                 name += "/"
             self.name = name
         
+        self.size = 0
+        self.local_size = 0
         self.path = path
         self.size = 0
         self.local_size = 0
@@ -96,15 +102,36 @@ class Folder:
         self.child_folders = []
         self.files = []
         self.status = status
+        self.treeview_id = None
         # global test
         # if test: print (f"CREATING folder name \"{self.name}\" with the path \"{self.path}\"")
         self._initialize_folder_structure()
-
+    def set_treeview_id(self, new_id):
+        self.treeview_id = new_id
+    
     def __eq__(self, other):
         if isinstance(other, Folder):
-            return self.path == other.path
-            # and self.path == other.path and self.parent_folder == other.parent_folder and self.child_folders == other.child_folders and self.files == other.files and self.status == other.status
-        return False
+            # Compare folder names
+            if self.name != other.name or self.size != other.size:
+                return False
+
+            # # Compare files in the current folder
+            # files1 = set(file for file in self.files)
+            # files2 = set(file for file in other.files)
+            # if files1 != files2:
+            #     return False
+
+            # # Compare child folders recursively
+            # child_folders1 = {folder: folder for folder in self.child_folders}
+            # child_folders2 = {folder: folder for folder in other.child_folders}
+            # if set(child_folders1) != set(child_folders2):
+            #     return False
+            # for name in child_folders1:
+            #     if child_folders1[name] != child_folders2[name]:
+            #         return False
+
+            # return True 
+        return True
     
     def _initialize_folder_structure(self):
         for root, dirs, files in os.walk(self.path):
@@ -124,7 +151,10 @@ class Folder:
                 file_hash = self._calculate_hash(file_path)
                 file = File(file_path, file_hash=file_hash,  name=file_name, parent_folder=self, status=self.status)
                 self.add_file(file)
-
+                
+        self.size = sum(file.size for file in self.files) + sum(folder.size for folder in self.child_folders)
+        self.local_size = 0 + self.size
+    
     def add_file(self, file):
         file.path = f"{self.path}/{file.name}"
         file.parent_folder = self
@@ -164,8 +194,17 @@ class Folder:
         all_child_folders_downloaded = all(folder.status == "Downloaded" for folder in self.child_folders)
         if all_child_folders_downloaded:
             # or len(self.child_folders) == 0:
+            # print(self.name)
             self.status = "Downloaded"
             self.set_path(new_path)
+            # try:
+            #     # print(1)
+            #     if(os.path.exists(self.path) == False):
+            #         self.status = ""
+            #         self.remove_path()
+            # except:
+            #     self.status = ""
+            #     self.remove_path()
         
         # Check if the parent folder exists and update its status if needed
         if self.parent_folder is not None:
@@ -219,19 +258,19 @@ class Folder:
         subfolder_names = subfolder_path.split("/")
         current_folder = self
 
-        print("////////")
-        print(subfolder_names)
-        print("--------")
+        # print("////////")
+        # print(subfolder_names)
+        # print("--------")
         subfolder_names.remove(subfolder_names[0])
 
         for subfolder_name in subfolder_names:
             found_subfolder = None
-            print(subfolder_name)
-            print("+++++++++")
+            # print(subfolder_name)
+            # print("+++++++++")
             for folder in current_folder.child_folders:
-                print(folder.name)
-                print(folder.name == subfolder_name)
-                print("********")
+                # print(folder.name)
+                # print(folder.name == subfolder_name)
+                # print("********")
                 if subfolder_name in folder.name:
                     found_subfolder = folder
                     break
@@ -277,7 +316,7 @@ class Folder:
                 print("+++++++++")
                 for folder in current_folder.child_folders:
                     print(folder.name)
-                    print(folder.name == subfolder_name)
+                    # print(folder.name == subfolder_name)
                     print("********")
                     if subfolder_name in folder.name:
                         current_folder = folder
@@ -357,14 +396,25 @@ def print_tree(folder:Folder, indent=''):
     for file in folder.files:
         print(f"{new_indent}{file.name} {file.status} {file.path}")
 
-    # Recursively print the child folders
-    for i, child_folder in enumerate(folder.child_folders):
-        # Check if this is the last child folder to adjust the tree branch symbol
-        if i == len(folder.child_folders) - 1:
-            sub_indent = indent + '    '
-        else:
-            sub_indent = indent + '│   '
-        print_tree(child_folder, sub_indent)
+def compare_folders(folder1: Folder, folder2: Folder) -> bool:
+    # Compare folder names
+    if folder1.name != folder2.name:
+        return False
+
+    # Compare files in the current folder
+    files1 = set(file.file_hash for file in folder1.files)
+    files2 = set(file.file_hash for file in folder2.files)
+    if files1 != files2:
+        return False
+
+    # Compare child folders recursively
+    for subfolder1, subfolder2 in zip(folder1.child_folders, folder2.child_folders):
+        if not compare_folders(subfolder1, subfolder2):
+            return False
+
+    return True
+
+
 
 # import json
 
@@ -411,3 +461,9 @@ def print_tree(folder:Folder, indent=''):
     
 #     def set_pieces(self, pieces):
 #         self.pieces = pieces
+'''
+Container: a,b,c,d 
+a,b: đã tải rồi
+c: đang tải
+d: chưa có, đang ở trên Tracker
+'''

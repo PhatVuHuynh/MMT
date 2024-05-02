@@ -6,7 +6,6 @@ import os
 import tqdm
 import queue
 import tkinter as tk
-from folder import *
 import tqdm, time
 
 TRACKER_IP = ''
