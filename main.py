@@ -58,13 +58,13 @@ def display_list(event=None):
         
         else: #not none
             if isinstance(folder, Folder):
-                tree.item(folder.treeview_id, values=(tree.item(folder.treeview_id, 'values')[0], "Hello", tree.item(folder.treeview_id, 'values')[2], tree.item(folder.treeview_id, 'values')[3]))
+                tree.item(folder.treeview_id, values=(tree.item(folder.treeview_id, 'values')[0], folder.status, tree.item(folder.treeview_id, 'values')[2], tree.item(folder.treeview_id, 'values')[3]))
                 for file in folder.files:
                     update_treeview(tree, file, folder.treeview_id)
                 for subfolder in folder.child_folders:
                     update_treeview(tree, subfolder, folder.treeview_id)
             elif isinstance(folder, File):
-                tree.item(folder.treeview_id, values=(tree.item(folder.treeview_id, 'values')[0], "Hello", tree.item(folder.treeview_id, 'values')[2], tree.item(folder.treeview_id, 'values')[3]))
+                tree.item(folder.treeview_id, values=(tree.item(folder.treeview_id, 'values')[0], folder.status, tree.item(folder.treeview_id, 'values')[2], tree.item(folder.treeview_id, 'values')[3]))
             
     global tree
     global peer
@@ -293,13 +293,13 @@ if __name__ == "__main__":
     tree['columns'] = ('Hash', 'Status', 'Type','Path')
     tree.column('#0', width=150, minwidth=150, stretch=tk.NO)
     tree.column('Hash', width=200, minwidth=200, stretch=tk.NO)
-    # tree.column('Status', width=120, minwidth=120, stretch=tk.NO)  # Adjust the width as needed
+    tree.column('Status', width=120, minwidth=120, stretch=tk.NO)  # Adjust the width as needed
     tree.column('Type', width=100, minwidth=100, stretch=tk.NO)
     tree.column('Path', width=270, minwidth=270, stretch=tk.NO)
     
     tree.heading('#0', text='Name', anchor=tk.W)
     tree.heading('Hash', text='Hash', anchor=tk.W)
-    # tree.heading('Status', text='Status', anchor=tk.W)  # Add a heading for the new column
+    tree.heading('Status', text='Status', anchor=tk.W)  # Add a heading for the new column
     tree.heading('Type', text='Type', anchor=tk.W)
     tree.heading('Path', text='Path', anchor=tk.W)
     # folder1 = tree.insert('', 'end', text='Folder 1', values=('10 KB', 'Folder', 'Downloading'))

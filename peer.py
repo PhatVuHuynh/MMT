@@ -727,7 +727,8 @@ class Peer:
                 print(id)
                 if(id > -1):
                     share_list[i] = self.container[id]
-                    share_list[i].change_status("Downloaded")
+                    if os.path.exists(self.container[id].path):
+                        share_list[i].change_status("Downloaded")
             except Exception as e:
                 print(e)
                 share_list[i].change_status("")
@@ -1594,3 +1595,11 @@ if __name__ == "__main__":
     peer.sen()
     print("end")
     # sys.exit()
+'''
+peer1 container không có gì
+peer 2 upload a
+peer 3 uplaod b
+request file list -> a, b
+
+self.container = a, b, nhưng mà status a ,b = rỗng
+'''
