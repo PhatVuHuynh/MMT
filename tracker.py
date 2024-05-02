@@ -248,7 +248,7 @@ class Tracker:
                     # response = json.dumps(available_files).encode()
                     response = pickle.dumps(available_files)
                     # print("in")
-                    client_socket.send(response)
+                    client_socket.sendall(response)
 
                 elif command == 'upload':
                     flag = True
