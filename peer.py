@@ -671,11 +671,14 @@ class Peer:
         message = json.dumps({'command': 'list'})
             
         self.client_to_tracker.send(message.encode())
-        
+        print (f"dccmm")
         response = self.client_to_tracker.recv(PIECE_SIZE)
+        print (f"DCCM")
+        try:
+            share_list = pickle.loads(response)
+        except Exception as e:
+            print(f"Error unpickling data: {e}")
         
-        share_list = pickle.loads(response)
-
         for i in range(len(share_list)):
             try:
                 print(share_list[i].name)
@@ -683,7 +686,8 @@ class Peer:
                 print(id)
                 if(id > -1):
                     share_list[i] = self.container[id]
-                    share_list[i].change_status("Downloaded")
+                    if os.path.exists(self.container[id].path):
+                        share_list[i].change_status("Downloaded")
             except Exception as e:
                 print(e)
                 share_list[i].change_status("")
@@ -692,7 +696,7 @@ class Peer:
             # print(share.status)
             # print(share.path)
             # print("-------")
-        self.container = share_list
+        self.container=share_list
         return share_list
     
     def upload_folder(self, folder: Folder): #TODO: Gửi folder lên tracker
