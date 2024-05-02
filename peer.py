@@ -32,16 +32,17 @@ class Peer:
         self.container = files
         self.file_list_lock = threading.Lock()
         self.part_data_lock = threading.Lock()
+        self.request_lock = threading.Lock()
 
 
-        sizes, hashes = [],[]
-        for file in self.files:
-            sizes.append(os.path.getsize(file))
-            part_hash = self.create_hash_file(file)
-            hashes.append(part_hash)
+        # sizes, hashes = [],[]
+        # for file in self.files:
+        #     sizes.append(os.path.getsize(file))
+        #     part_hash = self.create_hash_file(file)
+        #     hashes.append(part_hash)
         
-        self.hashes = hashes
-        self.sizes = sizes
+        # self.hashes = hashes
+        # self.sizes = sizes
         
         # connect to tracker
         if (tracker_host is not None) or (tracker_port is not None):
@@ -79,10 +80,6 @@ class Peer:
                 # while True:   
                 #     client_socket, addr = self.server_socket.accept()
                 threading.Thread(target=self.accept_connections, daemon=False).start()
-
-        
-        self.part_data_lock = threading.Lock()
-        
     
     # def print_container(self):
     #     for c in self.container:
@@ -186,7 +183,7 @@ class Peer:
         message = json.dumps({'command': 'request', 'file': filename, 'hash': file_hash})
         # print(1)
         print(message)
-        with self.part_data_lock:
+        with self.request_lock:
             self.client_to_tracker.send(message.encode())
             response = self.client_to_tracker.recv(PIECE_SIZE)
         if not response:
@@ -203,7 +200,7 @@ class Peer:
         message = json.dumps({'command': 'request', 'file': filename, 'hash': file_hash})
         # print(1)
         print(message)
-        with self.part_data_lock:
+        with self.request_lock:
             self.client_to_tracker.send(message.encode())
             response = self.client_to_tracker.recv(PIECE_SIZE)
         if not response:
@@ -294,7 +291,7 @@ class Peer:
                 os.remove(file_path)
                 with self.part_data_lock:
                     status.append((start, end, "Failed"))
-                print(f"Error in download_file: {e}")
+                print(f"Error in download_file")
             # print(f"Successfully wrote array to file: {file_path}")
             
             # print("end merge piece")
@@ -412,7 +409,7 @@ class Peer:
                     # path = os.path.join(SHARE_PATH, f)
             print(c.path)
             if(path != ""):
-                with open(filename, 'rb') as file:
+                with open(path, 'rb') as file:
                     file.seek(start)
                     numbytes = end - start
                     buffer_size = 1024*1024
@@ -814,8 +811,8 @@ class Peer:
         # if(out):
         #     print(f"You already have {file_name}.")
         #     return
-        
-        self.manage_downloads([file_name], [hash])
+        with self.file_list_lock:
+            self.manage_downloads([file_name], [hash])
     
     def request_download_folder(self, folder_name:str):
         path = os.path.join(DOWNLOAD_PATH, folder_name)
@@ -878,8 +875,29 @@ class Peer:
         if(out):
             print(f"You already have {folder_name}.")
             return
-            
-        self.manage_downloads(temp_list, hash_list)
+        
+        filename = []
+        for f in temp_list:
+            # filename.append(f)                        
+            name = f.name
+            root_folder = f.parent_folder
+            temp_folder = f.parent_folder
+            # print("----")
+            # print(name)
+            # print(f.parent_folder)
+            while root_folder is not None:
+                # print("----")
+                # print(name)
+                name = f"{root_folder.name}{name}"
+                
+                root_folder = temp_folder.parent_folder
+                temp_folder = root_folder
+            # f.name = name
+            filename.append(name)
+            hash_list.append(f.file_hash)
+
+        with self.file_list_lock:
+            self.manage_downloads(filename, hash_list)
         # peer_req = self.request_peerS_info(folder_name)
         # print(peer_req)
         # for p in peer_req['peers']:
@@ -1302,7 +1320,11 @@ class Peer:
                 gui.event_generate("<<DisplayList>>", when="tail")
             elif message == "DOWNLOAD FILE":
                 file_hash, file_name = tk_to_peer_q.get()
-                self.request_download_file(file_name=file_name, file_hash=file_hash)
+                print(file_hash)
+                print(type(file_hash))
+                print(file_name)
+                print(type(file_name))
+                self.request_download_file(file_name=file_name, hash=file_hash)
             elif message == 'DOWNLOAD FOLDER':
                 folder_name = tk_to_peer_q.get()
                 self.request_download_folder(folder_name)
