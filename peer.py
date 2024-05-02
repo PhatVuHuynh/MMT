@@ -621,7 +621,10 @@ class Peer:
                             self.container[i].set_path(os.path.abspath(DOWNLOAD_PATH))
                         self.container[i].change_status(contain.status)
                 else:
-                    path = self.container[i].get_file(contain.name)
+                    if(isinstance(self.container[i], Folder)):
+                        path = self.container[i].get_file(contain.name)
+                    else:
+                        path = None
                     print(path)
                     if(path is not None):
                         print(2)
@@ -645,7 +648,11 @@ class Peer:
                             self.container[i].set_path(os.path.abspath(DOWNLOAD_PATH))
                         self.container[i].change_status(contain.status)
                 else:
-                    path = self.container[i].get_subfolder(contain.name)
+                    if(isinstance(self.container[i], Folder)):
+                        path = self.container[i].get_subfolder(contain.name)
+                    else:
+                        path = None
+                    
                     if(path is not None):
                         print(4)
                         if(path.status == "Downloaded"):
@@ -1031,6 +1038,7 @@ class Peer:
                                 print("Downloading 2")
                                 path = self.container[i].get_subfolder(file)
                                 if(path is not None):
+                                    print("Downloading 2-")
                                     if(path.status == "Downloaded"):
                                         out = True
                                         break
@@ -1374,9 +1382,38 @@ class Peer:
                 try:
                     file = p['file']
                     file.name = file_name
-                    if(file_hash == ""):
-                        if file_hash == hash:
+                    # if(file_hash == ""):
+                    #     if file_hash == hash:
                                 
+                        #     path = os.path.join(DOWNLOAD_PATH, file_name)
+                        #     print(path)
+                        #     try:
+                        #         if(os.path.exists(os.path.dirname(path)) == False):
+                        #             os.mkdir(os.path.dirname(path))
+                        #     except:
+                        #         os.makedirs(os.path.dirname(path))
+                            
+                        #     with self.part_data_lock:
+                        #         file.status = f"Downloaded"
+                        #         self.update_contain(file)
+                        #     print(f"File {file_name} has been downloaded.")
+                        # else:
+                        #     print(f"Hash difference.")
+                    # else:
+                    sha1 = hashlib.sha1()
+                    hash_sum = ""
+                    print(file_hash)
+                    print(hash)
+                    path = os.path.join(DOWNLOAD_PATH, file_name)
+                    print(path)
+                    try:
+                        if(os.path.exists(os.path.dirname(path)) == False):
+                            os.mkdir(os.path.dirname(path))
+                    except:
+                        os.makedirs(os.path.dirname(path))
+                    with open(path, 'wb') as result_file:
+                        # print(part_data)
+                        if(len(part_data) == 0):
                             path = os.path.join(DOWNLOAD_PATH, file_name)
                             print(path)
                             try:
@@ -1385,60 +1422,58 @@ class Peer:
                             except:
                                 os.makedirs(os.path.dirname(path))
                             
-                            with self.file_list_lock:
+                            with self.part_data_lock:
                                 file.status = f"Downloaded"
                                 self.update_contain(file)
-                            print(f"File {file_name} has been downloaded.")
-                        else:
-                            print(f"Hash difference.")
-                    else:
-                        sha1 = hashlib.sha1()
-                        hash_sum = ""
-                        path = os.path.join(DOWNLOAD_PATH, file_name)
-                        print(path)
-                        try:
-                            if(os.path.exists(os.path.dirname(path)) == False):
-                                os.mkdir(os.path.dirname(path))
-                        except:
-                            os.makedirs(os.path.dirname(path))
-                        with open(path, 'wb') as result_file:
-                            # print(part_data)
-                            for _ , file_bin in part_data:
-                                # print(file_bin)
-                                with open(file_bin, 'rb') as file_read:
-                                    while True:
-                                        chunk = file_read.read(PIECE_SIZE)
-                                        # print(chunk)
-                                        if not chunk:
-                                            with self.file_list_lock:
-                                                file.status = f"Downloaded"
-                                                self.update_contain(file)
-                                            break
+                            
+                            hash_sum = sha1.update("".encode())
+                            hash_sum = sha1.hexdigest()
+                        for _ , file_bin in part_data:
+                            # print(file_bin)
+                            with open(file_bin, 'rb') as file_read:
+                                while True:
+                                    print(1)
+                                    chunk = file_read.read(PIECE_SIZE)
+                                    # print(chunk)
+                                    print(2)
+                                    if not chunk:
+                                        print(3)
+                                        with self.part_data_lock:
+                                            file.status = f"Downloaded"
+                                            self.update_contain(file)
+                                        print(4)
+                                        break
+                                    else:
+                                        print(5)
+                                        # piece_hash = str(hashlib.sha1(chunk)) #.hexdigest()
+                                        hash_sum = sha1.update(chunk)
+                                        print(6)
+                                        result_file.write(chunk)
+                                        print(7)
+                                        # print_message(result_file.tell(), size)
+                                        percent = round(float(result_file.tell() / size * 100))
+                                        if(percent == 100):
+                                            file.status = f"Downloaded"
                                         else:
-                                            # piece_hash = str(hashlib.sha1(chunk)) #.hexdigest()
-                                            hash_sum = sha1.update(chunk)
-                                            result_file.write(chunk)
-                                            # print_message(result_file.tell(), size)
-                                            percent = round(float(result_file.tell() / size * 100))
-                                            if(percent == 100):
-                                                file.status = f"Downloaded"
-                                            else:
-                                                file.status = f"Downloading: {percent}"
-                                            # print(file.status)
-                                            with self.file_list_lock:
-                                                self.update_contain(file)
-                                        hash_sum = sha1.hexdigest()
-                                os.remove(file_bin)
-                        result_file.close()
+                                            file.status = f"Downloading: {percent}"
+                                        # print(file.status)
+                                        print(8)
+                                        with self.part_data_lock:
+                                            self.update_contain(file)
+                                    hash_sum = sha1.hexdigest()
+                                    print(hash_sum)
+                            os.remove(file_bin)
+                    result_file.close()
 
-                        end_time = time.time()
+                    end_time = time.time()
 
-                        total_time = end_time - start_time
-                        # hash_sum = hashlib.sha1(hash_sum.encode()).hexdigest()
-                        if(hash_sum == hash):
-                            print(f"File {file_name} has been downloaded within {total_time}.")
-                        else:
-                            print(f"Hash difference.")
+                    total_time = end_time - start_time
+                    print(hash_sum)
+                    # hash_sum = hashlib.sha1(hash_sum.encode()).hexdigest()
+                    if(hash_sum == hash):
+                        print(f"File {file_name} has been downloaded within {total_time}.")
+                    else:
+                        print(f"Hash difference.")
                 except Exception as e:
                     print(e)
             

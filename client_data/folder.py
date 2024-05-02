@@ -62,15 +62,17 @@ class File:
         # if test: print (f"The file name \"{self.name}\" now has the path \"{self.path}\"")
 
     def _calculate_hash(self, file_path) -> str:
+        sha1 = hashlib.sha1()
         hash_sum = ""
         with open(file_path, 'rb') as file:
             piece_offset = 0
             piece = file.read(PIECE_SIZE)
             while piece:
-                piece_hash = hashlib.sha256(piece).hexdigest()
-                hash_sum += piece_hash
+                hash_sum = sha1.update(piece)
                 piece_offset += len(piece)
                 piece = file.read(PIECE_SIZE)
+        hash_sum = sha1.hexdigest()
+        print(hash_sum)
         return hash_sum
     
     def detach_parent(self):
@@ -150,25 +152,34 @@ class Folder:
         return self
     
     def update_folder(self, new_path):
-        for folder in self.child_folders:
-            folder.update_folder(new_path)
-
         if self.status == "Downloaded":
             # self.set_path(new_path)
             return
+        
+        for folder in self.child_folders:
+            folder.update_folder(new_path)
         
         for file in self.files:
             if file.status != "Downloaded":
                 return
         
         all_child_folders_downloaded = all(folder.status == "Downloaded" for folder in self.child_folders)
-        if all_child_folders_downloaded:
+        if all_child_folders_downloaded and self.status != "Downloaded":
             # or len(self.child_folders) == 0:
+            # print(self.name)
             self.status = "Downloaded"
             self.set_path(new_path)
+            # try:
+            #     # print(1)
+            #     if(os.path.exists(self.path) == False):
+            #         self.status = ""
+            #         self.remove_path()
+            # except:
+            #     self.status = ""
+            #     self.remove_path()
         
         # Check if the parent folder exists and update its status if needed
-        if self.parent_folder is not None:
+        if self.parent_folder is not None and self.parent_folder != self:
             self.parent_folder.update_folder(new_path)
 
     def change_status(self, status):
@@ -202,16 +213,17 @@ class Folder:
             folder.set_path(self.path)
     
     def _calculate_hash(self, file_path)->str:
+        sha1 = hashlib.sha1()
         hash_sum = ""
         with open(file_path, 'rb') as file:
             piece_offset = 0
             piece = file.read(PIECE_SIZE)
             while piece:
-                piece_hash = hashlib.sha256(piece).hexdigest()
-                hash_sum += piece_hash
+                hash_sum = sha1.update(piece)
                 piece_offset += len(piece)
                 piece = file.read(PIECE_SIZE)
-
+        # hash_sum = hashlib.sha1(hash_sum.encode()).hexdigest()
+        hash_sum = sha1.hexdigest()
         return hash_sum
 
     def get_subfolder(self, subfolder_path: str):
@@ -219,20 +231,20 @@ class Folder:
         subfolder_names = subfolder_path.split("/")
         current_folder = self
 
-        print("////////")
-        print(subfolder_names)
-        print("--------")
-        if(len(subfolder_names) == 0):
-                subfolder_names.remove(subfolder_names[0])
+        # print("////////")
+        # print(subfolder_names)
+        # print("--------")
+        if(len(subfolder_names) != 0):
+            subfolder_names.remove(subfolder_names[0])
 
         for subfolder_name in subfolder_names:
             found_subfolder = None
-            print(subfolder_name)
-            print("+++++++++")
+            # print(subfolder_name)
+            # print("+++++++++")
             for folder in current_folder.child_folders:
-                print(folder.name)
-                print(folder.name == subfolder_name)
-                print("********")
+                # print(folder.name)
+                # print(folder.name == subfolder_name)
+                # print("********")
                 if subfolder_name in folder.name:
                     found_subfolder = folder
                     break
@@ -266,7 +278,7 @@ class Folder:
             for file in self.files:
                 if (file.name == file_name) and isinstance(file, File) and ((hash is None) or (file.file_hash == hash)):
                     return file
-            if(len(subfolder_names) == 0):
+            if(len(subfolder_names) != 0):
                 subfolder_names.remove(subfolder_names[0])
 
             # Traverse the subfolders
@@ -275,12 +287,12 @@ class Folder:
             for subfolder_name in subfolder_names:
                 found = False
                 # subfolder_name = subfolder_name + "/"
-                print(subfolder_name)
-                print("+++++++++")
+                # print(subfolder_name)
+                # print("+++++++++")
                 for folder in current_folder.child_folders:
-                    print(folder.name)
-                    print(folder.name == subfolder_name)
-                    print("********")
+                    # print(folder.name)
+                    # print(folder.name == subfolder_name)
+                    # print("********")
                     if subfolder_name in folder.name:
                         current_folder = folder
                         found = True

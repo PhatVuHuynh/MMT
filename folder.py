@@ -152,19 +152,19 @@ class Folder:
         return self
     
     def update_folder(self, new_path):
-        for folder in self.child_folders:
-            folder.update_folder(new_path)
-
         if self.status == "Downloaded":
             # self.set_path(new_path)
             return
+        
+        for folder in self.child_folders:
+            folder.update_folder(new_path)
         
         for file in self.files:
             if file.status != "Downloaded":
                 return
         
         all_child_folders_downloaded = all(folder.status == "Downloaded" for folder in self.child_folders)
-        if all_child_folders_downloaded:
+        if all_child_folders_downloaded and self.status != "Downloaded":
             # or len(self.child_folders) == 0:
             # print(self.name)
             self.status = "Downloaded"
@@ -179,7 +179,7 @@ class Folder:
             #     self.remove_path()
         
         # Check if the parent folder exists and update its status if needed
-        if self.parent_folder is not None:
+        if self.parent_folder is not None and self.parent_folder != self:
             self.parent_folder.update_folder(new_path)
 
     def change_status(self, status):
@@ -234,7 +234,8 @@ class Folder:
         # print("////////")
         # print(subfolder_names)
         # print("--------")
-        subfolder_names.remove(subfolder_names[0])
+        if(len(subfolder_names) != 0):
+            subfolder_names.remove(subfolder_names[0])
 
         for subfolder_name in subfolder_names:
             found_subfolder = None
@@ -268,16 +269,17 @@ class Folder:
             subfolder_names = parts[:-1]
             # for subfolder_name in subfolder_names:
             #     subfolder_name += "/"
-            # print("////////")
-            # print(parts)
-            # print(file_name)
-            # print(subfolder_names)
-            # print("--------")
+            print("////////")
+            print(parts)
+            print(file_name)
+            print(subfolder_names)
+            print("--------")
             #First layer
             for file in self.files:
                 if (file.name == file_name) and isinstance(file, File) and ((hash is None) or (file.file_hash == hash)):
                     return file
-            subfolder_names.remove(subfolder_names[0])
+            if(len(subfolder_names) != 0):
+                subfolder_names.remove(subfolder_names[0])
 
             # Traverse the subfolders
             current_folder = self
