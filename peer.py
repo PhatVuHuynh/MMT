@@ -6,6 +6,7 @@ import os
 import tqdm
 import queue
 import tkinter as tk
+from folder import *
 import tqdm, time
 
 TRACKER_IP = ''
@@ -1506,7 +1507,7 @@ class Peer:
                     file.name = file_name
                     if(file_hash == ""):
                         if file_hash == hash:
-                                
+                            print(1)
                             path = os.path.join(DOWNLOAD_PATH, file_name)
                             print(path)
                             try:
@@ -1523,38 +1524,52 @@ class Peer:
                             print(f"Hash difference.")
                     else:
                         hash_sum = ""
+                        print(2)
                         path = os.path.join(DOWNLOAD_PATH, file_name)
                         print(path)
                         try:
+                            print(3)
                             if(os.path.exists(os.path.dirname(path)) == False):
                                 os.mkdir(os.path.dirname(path))
+                            print(4)
                         except:
+                            print(5)
                             os.makedirs(os.path.dirname(path))
                         with open(path, 'wb') as result_file:
                             # print(part_data)
                             for _ , file_bin in part_data:
-                                # print(file_bin)
+                                print(file_bin)
+                                
                                 with open(file_bin, 'rb') as file_read:
+                                    print(6)
                                     while True:
+                                        print(7)
                                         chunk = file_read.read(PIECE_SIZE)
-                                        # print(chunk)
+                                        print(chunk)
                                         if not chunk:
-                                            with self.file_list_lock:
+                                            print(8)
+                                            with self.part_data_lock:
                                                 file.status = f"Downloaded"
                                                 self.update_contain(file)
+                                                print(9)
                                             break
                                         else:
+                                            print(10)
                                             piece_hash = hashlib.sha256(chunk).hexdigest()
+                                            print(11)
                                             hash_sum += piece_hash
+                                            print(12)
                                             result_file.write(chunk)
-                                            # print_message(result_file.tell(), size)
+                                            # print(13)
+                                            print(result_file.tell())
                                             percent = round(float(result_file.tell() / size * 100))
                                             if(percent == 100):
                                                 file.status = f"Downloaded"
                                             else:
                                                 file.status = f"Downloading: {percent}"
-                                            # print(file.status)
-                                            with self.file_list_lock:
+                                            print(file.status)
+                                            with self.part_data_lock:
+                                                print(13)
                                                 self.update_contain(file)
                                 os.remove(file_bin)
                         result_file.close()
