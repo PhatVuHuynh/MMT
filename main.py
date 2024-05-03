@@ -135,6 +135,9 @@ def console_execute_command(event=None):
     command = console_entry.get().strip()
     if command != "":
         text_area_insert (message=command, from_user=True)
+        if command == "logout":
+            root.destroy()
+            return
         tk_to_peer_q.put("CONSOLE")
         tk_to_peer_q.put(command)
         output = peer_to_tk_q.get()
