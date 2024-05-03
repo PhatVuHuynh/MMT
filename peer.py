@@ -923,7 +923,6 @@ class Peer:
             
             global_response = res
             q.put(global_response)
-            self.gui.event_generate("<<LOGOUT SUCCESS>>")
             return
         elif cmd == "list":
             #self.print_container()
@@ -1564,9 +1563,6 @@ class Peer:
                     threading.Thread(target=self.accept_connections, daemon=True).start()
                 peer_to_tk_q.put(result)
                 gui.event_generate("<<ReceiveLogin>>", when="tail")
-            
-            elif message == "LOGOUT":
-                self.sen_process (data="logout", q=q)
 
             elif message == "CONSOLE":
                 message = tk_to_peer_q.get() #block here

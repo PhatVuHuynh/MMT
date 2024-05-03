@@ -150,7 +150,8 @@ class Folder:
                 file_hash = self._calculate_hash(file_path)
                 file = File(file_path, file_hash=file_hash,  name=file_name, parent_folder=self, status=self.status)
                 self.add_file(file)
-
+        self.size = sum(file.size for file in self.files) + sum(folder.size for folder in self.child_folders)
+        # self.local_size = 0 + self.size
     def set_treeview_id(self, new_id):
         self.treeview_id = new_id
 

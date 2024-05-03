@@ -19,7 +19,11 @@ def timer_event():
     #put function here to force it run each 10 ms
     if request_list_flag: request_list()
     
-def upload_folder(): #TODO
+def upload_folder():
+    global connected_tracker
+    if not connected_tracker:
+        messagebox.showerror("Upload Error", "You haven't connected to the Tracker")
+        return
     folder_path = filedialog.askdirectory()
     print (f"upload {folder_path}")
     if folder_path:
@@ -28,7 +32,11 @@ def upload_folder(): #TODO
         tk_to_peer_q.put("UPLOAD FOLDER")
         tk_to_peer_q.put(new_folder)
 
-def upload_file(): #TODO
+def upload_file():
+    global connected_tracker
+    if not connected_tracker:
+        messagebox.showerror("Upload Error", "You haven't connected to the Tracker")
+        return
     file_path = filedialog.askopenfilename()
     if file_path:
         # folder_name = os.path.basename(file_path)
@@ -45,7 +53,7 @@ def display_list(event=None):
         if folder.treeview_id is None:
             if isinstance(folder, Folder):
             # Add the folder to the Treeview
-                folder_id = tree.insert(parent, 'end', text=folder.name, values=('',folder.status, 'Folder', folder.path))
+                folder_id = tree.insert(parent, 'end', text=folder.name, values=('',folder.size, folder.status, 'Folder', folder.path))
                 folder.set_treeview_id(folder_id)
                 # Add all files in the folder to the Treeview
                 for file in folder.files:
@@ -56,15 +64,15 @@ def display_list(event=None):
             elif isinstance(folder, File):
                 print("treeview")
                 print(folder.path)
-                folder_id = tree.insert(parent, 'end', text=folder.name, values=(folder.file_hash, folder.status, 'File', folder.path))
+                folder_id = tree.insert(parent, 'end', text=folder.name, values=(folder.file_hash, folder.size, folder.status, 'File', folder.path))
                 folder.set_treeview_id(folder_id)
         
         else: #not none
             if isinstance(folder, Folder):
                 if(folder.path is not None):
-                    tree.item(folder.treeview_id, values=(tree.item(folder.treeview_id, 'values')[0], folder.status, tree.item(folder.treeview_id, 'values')[2], folder.path))
+                    tree.item(folder.treeview_id, values=(tree.item(folder.treeview_id, 'values')[0], tree.item(folder.treeview_id, 'values')[1], folder.status, tree.item(folder.treeview_id, 'values')[3], folder.path))
                 else:
-                    tree.item(folder.treeview_id, values=(tree.item(folder.treeview_id, 'values')[0], folder.status, tree.item(folder.treeview_id, 'values')[2], tree.item(folder.treeview_id, 'values')[3]))
+                    tree.item(folder.treeview_id, values=(tree.item(folder.treeview_id, 'values')[0], tree.item(folder.treeview_id, 'values')[1], folder.status, tree.item(folder.treeview_id, 'values')[3], tree.item(folder.treeview_id, 'values')[4]))
                 for file in folder.files:
                     update_treeview(tree, file, folder.treeview_id)
                 for subfolder in folder.child_folders:
@@ -73,10 +81,10 @@ def display_list(event=None):
                 print("treeview not none")
                 print(folder.path)
                 if(folder.path is not None):
-                    tree.item(folder.treeview_id, values=(tree.item(folder.treeview_id, 'values')[0], folder.status, tree.item(folder.treeview_id, 'values')[2], folder.path))
+                    tree.item(folder.treeview_id, values=(tree.item(folder.treeview_id, 'values')[0], tree.item(folder.treeview_id, 'values')[1], folder.status, tree.item(folder.treeview_id, 'values')[3], folder.path))
                 else:
-                    tree.item(folder.treeview_id, values=(tree.item(folder.treeview_id, 'values')[0], folder.status, tree.item(folder.treeview_id, 'values')[2], tree.item(folder.treeview_id, 'values')[3]))
-                print(tree.item(folder.treeview_id, 'values')[3])
+                    tree.item(folder.treeview_id, values=(tree.item(folder.treeview_id, 'values')[0], tree.item(folder.treeview_id, 'values')[1], folder.status, tree.item(folder.treeview_id, 'values')[2], tree.item(folder.treeview_id, 'values')[4]))
+                print(tree.item(folder.treeview_id, 'values')[4])
                 # print(tree.item())
             
     global tree
@@ -122,12 +130,16 @@ def send_validate_login(event = None):
 def receive_validate_login(event=None):
     connect_result = peer_to_tk_q.get(block=False)
     global request_list_flag
+    global connected_tracker
+    
     if connect_result == True:
         show_main()
         request_list_flag = True
+        connected_tracker = True
     else:
         messagebox.showerror("Connect Field", "Cannot connect to the Tracker")
         request_list_flag = False
+        connected_tracker = False
 
 
 
@@ -163,7 +175,7 @@ def on_right_click(event):
     if item_id:
         # Get the item type (File or Folder) and Status
         item_values = tree.item(item_id, 'values')
-        item_status = item_values[1]
+        item_status = item_values[2]
         
         # Create a context menu
         context_menu = tk.Menu(tree, tearoff=0)
@@ -185,7 +197,7 @@ def download_files():
     for item_id in selected_items:
         file_name = tree.item(item_id, 'text')
         file_hash = tree.item(item_id, 'values')[0]
-        file_type = tree.item(item_id, 'values')[2]
+        file_type = tree.item(item_id, 'values')[3]
         path_parts = []
         current_item = item_id
         # Implement the download logic here
@@ -215,7 +227,7 @@ def show_main():
     
     main_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
     root.title("Main Window")
-    root.geometry("800x400")
+    root.geometry("1000x500")
     
 def show_login():
     # Switch back to login window
@@ -223,10 +235,10 @@ def show_login():
     login_frame.place(relx=0.5, rely=0.5, anchor='center')
     root.title("Login")
 
-def logout():
-    tk_to_peer_q.put("LOGOUT")
 
 if __name__ == "__main__":
+    connected_tracker = False
+    
     ipv4addr = socket.gethostbyname(socket.gethostname())
     port_number = random.randint(49152, 65535)
     peer = Peer(my_ip=ipv4addr, my_port=port_number)
@@ -305,15 +317,17 @@ if __name__ == "__main__":
     #config the tabs
     tree = ttk.Treeview(treeview)
     # tree['columns'] = ('Size', 'Type', 'Status')  # Add a new column for status
-    tree['columns'] = ('Hash', 'Status', 'Type','Path')
+    tree['columns'] = ('Hash', 'Size', 'Status', 'Type','Path')
     tree.column('#0', width=150, minwidth=150, stretch=tk.NO)
     tree.column('Hash', width=200, minwidth=200, stretch=tk.NO)
+    tree.column('Size', width=100, minwidth=100, stretch=tk.NO)
     tree.column('Status', width=120, minwidth=120, stretch=tk.NO)  # Adjust the width as needed
     tree.column('Type', width=100, minwidth=100, stretch=tk.NO)
     tree.column('Path', width=270, minwidth=270, stretch=tk.NO)
     
     tree.heading('#0', text='Name', anchor=tk.W)
     tree.heading('Hash', text='Hash', anchor=tk.W)
+    tree.heading('Size', text='Size (Bytes)', anchor=tk.W)
     tree.heading('Status', text='Status', anchor=tk.W)  # Add a heading for the new column
     tree.heading('Type', text='Type', anchor=tk.W)
     tree.heading('Path', text='Path', anchor=tk.W)
@@ -347,26 +361,21 @@ if __name__ == "__main__":
     file_menu = tk.Menu(menu_bar, tearoff=0)
     file_menu.add_command(label="Upload file", command=upload_file)
     file_menu.add_command(label="Upload folder", command=upload_folder)
-    file_menu.add_command(label="Update list", command=request_list)
     # file_menu.add_separator()
     menu_bar.add_cascade(label="File", menu=file_menu)
 
     # Create an 'Options' menu
     options_menu = tk.Menu(menu_bar, tearoff=0)
-    options_menu.add_command(label="Logout", command=logout)
+    options_menu.add_command(label="Logout", command=lambda: root.destroy())
     menu_bar.add_cascade(label="Options", menu=options_menu)
 
-    # Create a 'Help' menu
-    help_menu = tk.Menu(menu_bar, tearoff=0)
-    help_menu.add_command(label="About")
-    menu_bar.add_cascade(label="Help", menu=help_menu)
 
     # Place the menu bar at the top of the window
     root.config(menu=menu_bar)
     
     root.bind("<<ReceiveLogin>>", receive_validate_login)
     root.bind("<<DisplayList>>", display_list)
-    root.bind("<<LOGOUT SUCCESS>>", root.destroy)
+    # root.bind("<<LOGOUT SUCCESS>>", lambda: root.destroy())
     #create timer
     root.after(100, timer_trigger)
     request_list_flag = False
