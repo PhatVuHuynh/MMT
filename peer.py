@@ -923,6 +923,10 @@ class Peer:
             
             global_response = res
             q.put(global_response)
+            
+            if self.gui: 
+                peer_to_tk_q.put(global_response)
+                self.gui.event_generate("<<CONSOLE>>")
             return
         elif cmd == "list":
             #self.print_container()
@@ -1238,6 +1242,10 @@ class Peer:
             global_response = "pass"
             # self.client_to_tracker.send("pass".encode())
         q.put(global_response)
+        
+        if self.gui: 
+            peer_to_tk_q.put(global_response)
+            self.gui.event_generate("<<CONSOLE>>")
 
     def sen(self):
         while True:
@@ -1571,9 +1579,11 @@ class Peer:
 
             elif message == "CONSOLE":
                 message = tk_to_peer_q.get() #block here
-                self.sen_process (data=message, q=q)
-                response = q.get(timeout=5)
-                peer_to_tk_q.put(response)
+                # self.sen_process (data=message, q=q)
+                thrSen = threading.Thread(target=self.sen_process, args=(message, q))
+                thrSen.start()
+                # response = q.get(timeout=5)
+                # peer_to_tk_q.put(response)
                 
             elif message == "GET LIST":
                 # self.sen_process (data="list", q=q)

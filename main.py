@@ -150,10 +150,11 @@ def console_execute_command(event=None):
         text_area_insert (message=command, from_user=True)
         tk_to_peer_q.put("CONSOLE")
         tk_to_peer_q.put(command)
-        output = peer_to_tk_q.get()
-        print ("ABC")
-        text_area_insert(message=output, from_user=False)
 
+
+def receive_console_message (event=None):
+    output = peer_to_tk_q.get()
+    text_area_insert(message=output, from_user=False)
         
 def text_area_insert(message:str, from_user = False):
     global console_entry
@@ -375,6 +376,7 @@ if __name__ == "__main__":
     
     root.bind("<<ReceiveLogin>>", receive_validate_login)
     root.bind("<<DisplayList>>", display_list)
+    root.bind("<<CONSOLE>>", receive_console_message)
     # root.bind("<<LOGOUT SUCCESS>>", lambda: root.destroy())
     #create timer
     root.after(100, timer_trigger)
