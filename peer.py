@@ -35,7 +35,7 @@ class Peer:
             except ValueError:
                 print ("Tracker port is not an integer")
                 exit()
-            flag = self.connect_tracker()
+            flag = self.connect_tracker(tracker_host=self.tracker_host,tracker_port=self.tracker_port)
             if(flag):
                 self.register_with_tracker()
 
@@ -1614,7 +1614,7 @@ if __name__ == "__main__":
     # if len(sys.argv) > 3:
     #     files = sys.argv[3].split(',')
 
-    peer = Peer(TRACKER_IP, TRACKER_PORT, MY_IP, my_port)
+    peer = Peer(tracker_host=TRACKER_IP, tracker_port=TRACKER_PORT, my_ip=MY_IP, my_port=my_port)
 
     # if the peer need to download a file
     # if len(sys.argv) > 4:
