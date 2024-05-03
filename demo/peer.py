@@ -1205,9 +1205,9 @@ class Peer:
             thrSen = threading.Thread(target=self.sen_process, args=(data, q))
             thrSen.start()
             # print("endloop")
-            print(self.response)
+            # print(self.response)
             answer = q.get()
-            #print(answer)
+            print(answer)
             if(answer == "Disconnected from the server."):
                 break
     
