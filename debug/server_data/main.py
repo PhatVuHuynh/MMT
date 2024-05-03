@@ -10,6 +10,7 @@ from peer import *
 from tkinter import filedialog
 from folder import *
 
+connected_tracker = False
 ipv4addr = socket.gethostbyname(socket.gethostname())
 port_number = random.randint(49152, 65535)
 peer = Peer()
@@ -23,21 +24,31 @@ def timer_event():
     #put function here to force it run each 10 ms
     if request_list_flag: request_list()
     
-def upload_folder(): #TODO
+# def upload_folder(): #TODO
+def share_folder(): #TODO
+    global connected_tracker
+    if not connected_tracker:
+        messagebox.showerror("Upload Error", "You haven't connected to the Tracker")
+        return
     folder_path = filedialog.askdirectory()
     print (f"upload {folder_path}")
     if folder_path:
         folder_name = os.path.basename(folder_path)
         new_folder = Folder(folder_path, name=folder_name, status="Downloaded")
-        tk_to_peer_q.put("UPLOAD FOLDER")
+        tk_to_peer_q.put("SHARE FOLDER")
         tk_to_peer_q.put(new_folder)
 
-def upload_file(): #TODO
+# def upload_file(): #TODO
+def share_file(): #TODO
+    global connected_tracker
+    if not connected_tracker:
+        messagebox.showerror("Upload Error", "You haven't connected to the Tracker")
+        return
     file_path = filedialog.askopenfilename()
     if file_path:
         # folder_name = os.path.basename(file_path)
         new_file = File(file_path, status="Downloaded")
-        tk_to_peer_q.put("UPLOAD FILE")
+        tk_to_peer_q.put("SHARE FILE")
         tk_to_peer_q.put(new_file)
 
 def request_list():
@@ -123,17 +134,20 @@ def send_validate_login(event = None):
         return
     
     tk_to_peer_q.put("CONNECT")
-    tk_to_peer_q.put((url, port,))
+    # tk_to_peer_q.put((url, port,))
 
 def receive_validate_login(event=None):
     connect_result = peer_to_tk_q.get(block=False)
     global request_list_flag
+    global connected_tracker
     if connect_result == True:
         show_main()
         request_list_flag = True
+        connected_tracker = True
     else:
         messagebox.showerror("Connect Field", "Cannot connect to the Tracker")
         request_list_flag = False
+        connected_tracker = False
 
 
 
@@ -142,6 +156,9 @@ def console_execute_command(event=None):
     command = console_entry.get().strip()
     if command != "":
         text_area_insert (message=command, from_user=True)
+        if command == "logout":
+            root.destroy()
+            return
         tk_to_peer_q.put("CONSOLE")
         tk_to_peer_q.put(command)
         output = peer_to_tk_q.get()
@@ -223,7 +240,7 @@ def show_main():
     
     main_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
     root.title("Main Window")
-    root.geometry("800x400")
+    root.geometry("1200x600")
     
 def show_login():
     # Switch back to login window
@@ -273,8 +290,8 @@ if __name__ == "__main__":
     tabs.place(relx=0, rely=0, relwidth=1, relheight=1)
     console = tk.Frame(tabs)   # first page, which would get widgets gridded into it
     treeview = tk.Frame(tabs)   # second page
+    tabs.add(treeview, text='Treeview')
     tabs.add(console, text='Console')
-    tabs.add(treeview, text='UI')
     
     
     #The console tab
@@ -311,7 +328,7 @@ if __name__ == "__main__":
     tree.column('Hash', width=200, minwidth=200, stretch=tk.NO)
     tree.column('Status', width=120, minwidth=120, stretch=tk.NO)  # Adjust the width as needed
     tree.column('Type', width=100, minwidth=100, stretch=tk.NO)
-    tree.column('Path', width=270, minwidth=270, stretch=tk.NO)
+    tree.column('Path', width=500, minwidth=500, stretch=tk.NO)
     
     tree.heading('#0', text='Name', anchor=tk.W)
     tree.heading('Hash', text='Hash', anchor=tk.W)
@@ -346,9 +363,11 @@ if __name__ == "__main__":
     menu_bar = tk.Menu(main_frame)
 
     file_menu = tk.Menu(menu_bar, tearoff=0)
-    file_menu.add_command(label="Upload file", command=upload_file)
-    file_menu.add_command(label="Upload folder", command=upload_folder)
-    file_menu.add_command(label="Update list", command=request_list)
+    file_menu.add_command(label="Share file", command=share_file)
+    file_menu.add_command(label="Share folder", command=share_folder)
+    # file_menu.add_command(label="Upload file", command=upload_file)
+    # file_menu.add_command(label="Upload folder", command=upload_folder)
+    # file_menu.add_command(label="Update list", command=request_list)
     # file_menu.add_separator()
     menu_bar.add_cascade(label="File", menu=file_menu)
 

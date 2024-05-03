@@ -71,6 +71,7 @@ class Tracker:
                         # 'pieces': pieces
                     }
                     response = (f"Registered {addr} with container: {data['container']}, IP: {data['ip']}, Port: {data['port']}")
+                    print(response)
                     client_socket.send(response.encode())
                 elif command == 'request':
                     print(data)
@@ -229,7 +230,13 @@ class Tracker:
                             print(cont.name)
                             # temp = cont.get_all_file_names()
                             # print(temp)
-                            available_files.append(cont)
+                            flag = True
+                            for a in available_files:
+                                if(a.name == cont.name and a.file_hash == cont.file_hash):
+                                    flag = False
+                                    break
+                            if(flag):
+                                available_files.append(cont)
                             # conts = json.loads(conts)
                             # print(conts)
                             # print(type(conts))

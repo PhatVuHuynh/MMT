@@ -42,7 +42,8 @@ class File:
         if isinstance(other, File):
             if (self.name == other.name) and (self.file_hash == other.file_hash):
                 return True
-            else: return False
+            else: 
+                return False
             # and self.path == other.path and self.parent_folder == other.parent_folder and self.file_hash == other.file_hash and self.status == other.status
         return False
 
@@ -82,7 +83,7 @@ class File:
                 piece_offset += len(piece)
                 piece = file.read(PIECE_SIZE)
         hash_sum = sha1.hexdigest()
-        print(hash_sum)
+        # print(hash_sum)
         return hash_sum
     
     def detach_parent(self):
@@ -124,24 +125,10 @@ class Folder:
             # Compare folder names
             if self.name != other.name or self.size != other.size:
                 return False
-
-            # # Compare files in the current folder
-            # files1 = set(file for file in self.files)
-            # files2 = set(file for file in other.files)
-            # if files1 != files2:
-            #     return False
-
-            # # Compare child folders recursively
-            # child_folders1 = {folder: folder for folder in self.child_folders}
-            # child_folders2 = {folder: folder for folder in other.child_folders}
-            # if set(child_folders1) != set(child_folders2):
-            #     return False
-            # for name in child_folders1:
-            #     if child_folders1[name] != child_folders2[name]:
-            #         return False
-
-            # return True 
-        return True
+            else:
+                return True
+        else:
+            return False
     
     def set_treeview_id(self, new_id):
         self.treeview_id = new_id
@@ -307,11 +294,11 @@ class Folder:
             subfolder_names = parts[:-1]
             # for subfolder_name in subfolder_names:
             #     subfolder_name += "/"
-            print("////////")
-            print(parts)
-            print(file_name)
-            print(subfolder_names)
-            print("--------")
+            # print("////////")
+            # print(parts)
+            # print(file_name)
+            # print(subfolder_names)
+            # print("--------")
             #First layer
             for file in self.files:
                 if (file.name == file_name) and isinstance(file, File) and ((hash is None) or (file.file_hash == hash)):

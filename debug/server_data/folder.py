@@ -33,11 +33,20 @@ class File:
         
         # global test
         # if test: print (f"CREATING file name \"{self.name}\" with the path \"{self.path}\" in parent \"{self.parent_folder.name}\"")
+    # def __eq__(self, other):
+    #     if isinstance(other, File):
+    #         return self.path == other.path
+    #         # and self.path == other.path and self.parent_folder == other.parent_folder and self.file_hash == other.file_hash and self.status == other.status
+    #     return False
     def __eq__(self, other):
         if isinstance(other, File):
-            return self.path == other.path
+            if (self.name == other.name) and (self.file_hash == other.file_hash):
+                return True
+            else: 
+                return False
             # and self.path == other.path and self.parent_folder == other.parent_folder and self.file_hash == other.file_hash and self.status == other.status
         return False
+
     def set_treeview_id(self, new_id):
         self.treeview_id = new_id
 
@@ -74,7 +83,7 @@ class File:
                 piece_offset += len(piece)
                 piece = file.read(PIECE_SIZE)
         hash_sum = sha1.hexdigest()
-        print(hash_sum)
+        # print(hash_sum)
         return hash_sum
     
     def detach_parent(self):
@@ -105,11 +114,21 @@ class Folder:
         # if test: print (f"CREATING folder name \"{self.name}\" with the path \"{self.path}\"")
         self._initialize_folder_structure()
 
+    # def __eq__(self, other):
+    #     if isinstance(other, Folder):
+    #         return self.path == other.path
+    #         # and self.path == other.path and self.parent_folder == other.parent_folder and self.child_folders == other.child_folders and self.files == other.files and self.status == other.status
+    #     return False
+
     def __eq__(self, other):
         if isinstance(other, Folder):
-            return self.path == other.path
-            # and self.path == other.path and self.parent_folder == other.parent_folder and self.child_folders == other.child_folders and self.files == other.files and self.status == other.status
-        return False
+            # Compare folder names
+            if self.name != other.name or self.size != other.size:
+                return False
+            else:
+                return True
+        else:
+            return False
     
     def set_treeview_id(self, new_id):
         self.treeview_id = new_id
@@ -275,11 +294,11 @@ class Folder:
             subfolder_names = parts[:-1]
             # for subfolder_name in subfolder_names:
             #     subfolder_name += "/"
-            print("////////")
-            print(parts)
-            print(file_name)
-            print(subfolder_names)
-            print("--------")
+            # print("////////")
+            # print(parts)
+            # print(file_name)
+            # print(subfolder_names)
+            # print("--------")
             #First layer
             for file in self.files:
                 if (file.name == file_name) and isinstance(file, File) and ((hash is None) or (file.file_hash == hash)):
