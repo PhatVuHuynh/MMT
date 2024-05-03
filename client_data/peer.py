@@ -4,6 +4,7 @@ import threading, queue
 from folder import *
 import os
 import tqdm, time
+import tkinter as tk
 
 TRACKER_IP = ''
 TRACKER_PORT = None
@@ -15,9 +16,9 @@ DOWNLOAD_PATH = "./download/"
 
 class Peer:
     # init peer
-    def __init__(self, tracker_host, tracker_port, my_ip, my_port, files=[]):
+    def __init__(self, my_ip, my_port, files=[], tracker_host=None, tracker_port=None):
         self.tracker_host = tracker_host
-        self.tracker_port = int(tracker_port)
+        self.tracker_port = tracker_port
         self.my_ip = my_ip
         self.my_port = int(my_port)
         self.container = files
@@ -28,21 +29,27 @@ class Peer:
         # self.sizes = []
 
         # connect to tracker
-        flag = self.connect_tracker()
-        if(flag):
-            self.register_with_tracker()
+        if (tracker_host is not None) or (tracker_port is not None):
+            try: 
+                self.tracker_port = int(tracker_port)
+            except ValueError:
+                print ("Tracker port is not an integer")
+                exit()
+            flag = self.connect_tracker()
+            if(flag):
+                self.register_with_tracker()
 
-            if(os.path.exists(DOWNLOAD_PATH) == False):
-                os.mkdir(DOWNLOAD_PATH)
-            
-            # socket to connect other peer
-            self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.server_socket.bind((self.my_ip, self.my_port))
-            self.server_socket.listen(MAX_LISTEN)
-            
-            # while True:   
-            #     client_socket, addr = self.server_socket.accept()
-            threading.Thread(target=self.accept_connections, daemon=True).start()
+                if(os.path.exists(DOWNLOAD_PATH) == False):
+                    os.mkdir(DOWNLOAD_PATH)
+                
+                # socket to connect other peer
+                self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.server_socket.bind((self.my_ip, self.my_port))
+                self.server_socket.listen(MAX_LISTEN)
+                
+                # while True:   
+                #     client_socket, addr = self.server_socket.accept()
+                threading.Thread(target=self.accept_connections, daemon=True).start()
 
         
     
@@ -70,12 +77,12 @@ class Peer:
     def get_container(self):
         return self.container
 
-    def connect_tracker(self):
+    def connect_tracker(self, tracker_host, tracker_port):
         try:
             self.client_to_tracker = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             # print(self.tracker_host)
             # print(self.tracker_port)
-            self.client_to_tracker.connect((self.tracker_host, self.tracker_port))
+            self.client_to_tracker.connect((tracker_host, tracker_port))
             print("Connect to tracker successfully.")
             return True
         except:
@@ -256,7 +263,7 @@ class Peer:
                 os.remove(file_path)
                 with self.part_data_lock:
                     status.append((start, end, "Failed"))
-                print(f"Error in download_file: {e}")
+                print(f"Error in download_file:")
             # print(f"Successfully wrote array to file: {file_path}")
             
             # print("end merge piece")
@@ -374,7 +381,7 @@ class Peer:
                     # path = os.path.join(SHARE_PATH, f)
             print(c.path)
             if(path != ""):
-                with open(filename, 'rb') as file:
+                with open(path, 'rb') as file:
                     file.seek(start)
                     numbytes = end - start
                     buffer_size = 1024*1024
@@ -614,11 +621,14 @@ class Peer:
                     print(1)
                     if(self.container[i].status == "Downloaded"):
                         print("Already downloaded.")
+                        print(self.container[i].path)
                         return
                     else:
                     # if(c.status == "Downloading"):
                         if(self.container[i].path == None):
+                            print("no path")
                             self.container[i].set_path(os.path.abspath(DOWNLOAD_PATH))
+                            print(self.container[i].path)
                         self.container[i].change_status(contain.status)
                 else:
                     if(isinstance(self.container[i], Folder)):
@@ -695,8 +705,12 @@ class Peer:
                 id = self.container.index(share_list[i])
                 print(id)
                 if(id > -1):
+                    print(share_list[i].path)
                     share_list[i] = self.container[id]
+                    print(share_list[i].path)
+                    print(self.container[id].path)
                     if os.path.exists(self.container[id].path):
+                        print("exist")
                         share_list[i].change_status("Downloaded")
             except Exception as e:
                 print(e)
@@ -706,7 +720,7 @@ class Peer:
             # print(share.status)
             # print(share.path)
             # print("-------")
-        self.container=share_list
+        # self.container=share_list
         return share_list
     
     def upload_folder(self, folder: Folder): #TODO: Gửi folder lên tracker
@@ -785,6 +799,7 @@ class Peer:
         #     return
         
         self.manage_downloads([file_name], [hash])
+        self.update_file_list()
     
     def request_download_folder(self, folder_name:str):
         path = os.path.join(DOWNLOAD_PATH, folder_name)
@@ -848,7 +863,29 @@ class Peer:
             print(f"You already have {folder_name}.")
             return
             
-        self.manage_downloads(temp_list, hash_list)
+        filename = []
+        for f in temp_list:
+            # filename.append(f)                        
+            name = f.name
+            root_folder = f.parent_folder
+            temp_folder = f.parent_folder
+            # print("----")
+            # print(name)
+            # print(f.parent_folder)
+            while root_folder is not None:
+                # print("----")
+                # print(name)
+                name = f"{root_folder.name}{name}"
+                
+                root_folder = temp_folder.parent_folder
+                temp_folder = root_folder
+            # f.name = name
+            filename.append(name)
+            hash_list.append(f.file_hash)
+
+        with self.file_list_lock:
+            self.manage_downloads(filename, hash_list)
+        self.update_file_list()
         # peer_req = self.request_peerS_info(folder_name)
         # print(peer_req)
         # for p in peer_req['peers']:
@@ -1499,6 +1536,70 @@ class Peer:
         print(f"Download finish.")
         # for speed in self.download_rates:
         #     print(speed[0]," ",speed[1], end='\n')
+
+    def run(self, gui:tk.Tk, tk_to_peer_q:queue.Queue, peer_to_tk_q:queue.Queue) -> None: #similar to send, wait for a command
+        q = queue.Queue()
+        while True:
+            message = tk_to_peer_q.get() #block here
+            print (message)
+            if message is None:  # None is our signal to exit the thread
+                break
+            
+            elif message == "CONNECT":
+                tracker_host, tracker_port = tk_to_peer_q.get()
+                
+                result = self.connect_tracker(tracker_host=tracker_host, tracker_port=tracker_port)
+                if(result):
+                    self.register_with_tracker()
+                    
+                    if(os.path.exists(DOWNLOAD_PATH) == False):
+                        os.mkdir(DOWNLOAD_PATH)
+                
+                    self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    self.server_socket.bind((self.my_ip, self.my_port))
+                    self.server_socket.listen(MAX_LISTEN)
+                    
+                    threading.Thread(target=self.accept_connections, daemon=True).start()
+                peer_to_tk_q.put(result)
+                gui.event_generate("<<ReceiveLogin>>", when="tail")
+                
+            elif message == "CONSOLE":
+                message = tk_to_peer_q.get() #block here
+                self.sen_process (data=message, q=q)
+                response = q.get(timeout=5)
+                peer_to_tk_q.put(response)
+                
+            elif message == "GET LIST":
+                # self.sen_process (data="list", q=q)
+                with self.file_list_lock:
+                    self.container = self.request_file_list()
+                print(self.container[0].path)
+                gui.event_generate("<<DisplayList>>", when="tail")
+                
+            elif message == "UPLOAD FOLDER":
+                new_folder = tk_to_peer_q.get()
+                with self.file_list_lock:
+                    self.upload_folder(new_folder)
+                    print(self.client_to_tracker.recv(1024).decode())
+                gui.event_generate("<<DisplayList>>", when="tail")
+            elif message == "UPLOAD FILE":
+                new_file = tk_to_peer_q.get()
+                with self.file_list_lock:
+                    self.upload_file(new_file)
+                    print(self.client_to_tracker.recv(1024).decode())
+                gui.event_generate("<<DisplayList>>", when="tail")
+            elif message == "DOWNLOAD FILE":
+                file_hash, file_name = tk_to_peer_q.get()
+                print(file_hash)
+                print(type(file_hash))
+                print(file_name)
+                print(type(file_name))
+                self.request_download_file(file_name=file_name, hash=file_hash)
+            elif message == 'DOWNLOAD FOLDER':
+                folder_name = tk_to_peer_q.get()
+                self.request_download_folder(folder_name)
+            else:
+                pass
     
 if __name__ == "__main__":
     TRACKER_IP = input("Please enter Tracker's IP you want to connect:")

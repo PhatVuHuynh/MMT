@@ -35,9 +35,14 @@ class File:
         # if test: print (f"CREATING file name \"{self.name}\" with the path \"{self.path}\" in parent \"{self.parent_folder.name}\"")
     def __eq__(self, other):
         if isinstance(other, File):
-            return self.path == other.path
+            if (self.name == other.name) and (self.file_hash == other.file_hash):
+                return True
+            else: return False
             # and self.path == other.path and self.parent_folder == other.parent_folder and self.file_hash == other.file_hash and self.status == other.status
         return False
+    
+    def set_treeview_id(self, new_id):
+        self.treeview_id = new_id
     
     def remove_path(self):
         self.path = None
@@ -98,15 +103,34 @@ class Folder:
         self.child_folders = []
         self.files = []
         self.status = status
+        self.treeview_id = None
         # global test
         # if test: print (f"CREATING folder name \"{self.name}\" with the path \"{self.path}\"")
         self._initialize_folder_structure()
 
     def __eq__(self, other):
         if isinstance(other, Folder):
-            return self.path == other.path
-            # and self.path == other.path and self.parent_folder == other.parent_folder and self.child_folders == other.child_folders and self.files == other.files and self.status == other.status
-        return False
+            # Compare folder names
+            if self.name != other.name or self.size != other.size:
+                return False
+
+            # # Compare files in the current folder
+            # files1 = set(file for file in self.files)
+            # files2 = set(file for file in other.files)
+            # if files1 != files2:
+            #     return False
+
+            # # Compare child folders recursively
+            # child_folders1 = {folder: folder for folder in self.child_folders}
+            # child_folders2 = {folder: folder for folder in other.child_folders}
+            # if set(child_folders1) != set(child_folders2):
+            #     return False
+            # for name in child_folders1:
+            #     if child_folders1[name] != child_folders2[name]:
+            #         return False
+
+            # return True 
+        return True
     
     def _initialize_folder_structure(self):
         for root, dirs, files in os.walk(self.path):
@@ -126,6 +150,9 @@ class Folder:
                 file_hash = self._calculate_hash(file_path)
                 file = File(file_path, file_hash=file_hash,  name=file_name, parent_folder=self, status=self.status)
                 self.add_file(file)
+
+    def set_treeview_id(self, new_id):
+        self.treeview_id = new_id
 
     def add_file(self, file):
         file.path = f"{self.path}/{file.name}"
