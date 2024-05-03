@@ -1467,11 +1467,13 @@ class Peer:
 
                     end_time = time.time()
 
-                    total_time = end_time - start_time
-                    #print(hash_sum)
+                    total_time = round(end_time - start_time, 2)
+                    minute = total_time / 60
+                    second = total_time - minute * 60
+                    # print(hash_sum)
                     # hash_sum = hashlib.sha1(hash_sum.encode()).hexdigest()
                     if(hash_sum == hash):
-                        print(f"File {file_name} has been downloaded within {total_time}.")
+                        print(f"File {file_name} has been downloaded within {minute}:{second}.")
                     else:
                         print(f"Hash difference.")
                 except Exception as e:
