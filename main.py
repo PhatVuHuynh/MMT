@@ -19,21 +19,20 @@ def timer_event():
     #put function here to force it run each 10 ms
     if request_list_flag: request_list()
     
-def upload_folder(): #TODO
+def share_folder(): #TODO
     folder_path = filedialog.askdirectory()
-    print (f"upload {folder_path}")
     if folder_path:
         folder_name = os.path.basename(folder_path)
         new_folder = Folder(folder_path, name=folder_name, status="Downloaded")
-        tk_to_peer_q.put("UPLOAD FOLDER")
+        tk_to_peer_q.put("SHARE FOLDER")
         tk_to_peer_q.put(new_folder)
 
-def upload_file(): #TODO
+def share_file(): #TODO
     file_path = filedialog.askopenfilename()
     if file_path:
         # folder_name = os.path.basename(file_path)
         new_file = File(file_path, status="Downloaded")
-        tk_to_peer_q.put("UPLOAD FILE")
+        tk_to_peer_q.put("SHARE FILE")
         tk_to_peer_q.put(new_file)
 
 def request_list():
@@ -345,9 +344,8 @@ if __name__ == "__main__":
     menu_bar = tk.Menu(main_frame)
 
     file_menu = tk.Menu(menu_bar, tearoff=0)
-    file_menu.add_command(label="Upload file", command=upload_file)
-    file_menu.add_command(label="Upload folder", command=upload_folder)
-    file_menu.add_command(label="Update list", command=request_list)
+    file_menu.add_command(label="Share file", command=share_file)
+    file_menu.add_command(label="Share folder", command=share_folder)
     # file_menu.add_separator()
     menu_bar.add_cascade(label="File", menu=file_menu)
 

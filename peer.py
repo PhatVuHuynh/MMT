@@ -1586,13 +1586,13 @@ class Peer:
                 # print(self.container[0].path)
                 gui.event_generate("<<DisplayList>>", when="tail")
                 
-            elif message == "UPLOAD FOLDER":
+            elif message == "SHARE FOLDER":
                 new_folder = tk_to_peer_q.get()
                 with self.file_list_lock:
                     self.upload_folder(new_folder)
                     print(self.client_to_tracker.recv(1024).decode())
                 gui.event_generate("<<DisplayList>>", when="tail")
-            elif message == "UPLOAD FILE":
+            elif message == "SHARE FILE":
                 new_file = tk_to_peer_q.get()
                 with self.file_list_lock:
                     self.upload_file(new_file)
