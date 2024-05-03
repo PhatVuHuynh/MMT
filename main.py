@@ -230,7 +230,7 @@ def show_main():
     
     main_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
     root.title("Main Window")
-    root.geometry("1000x500")
+    root.geometry("1200x600")
     
 def show_login():
     # Switch back to login window
@@ -326,7 +326,7 @@ if __name__ == "__main__":
     tree.column('Size', width=100, minwidth=100, stretch=tk.NO)
     tree.column('Status', width=120, minwidth=120, stretch=tk.NO)  # Adjust the width as needed
     tree.column('Type', width=100, minwidth=100, stretch=tk.NO)
-    tree.column('Path', width=270, minwidth=270, stretch=tk.NO)
+    tree.column('Path', width=500, minwidth=500, stretch=tk.NO)
     
     tree.heading('#0', text='Name', anchor=tk.W)
     tree.heading('Hash', text='Hash', anchor=tk.W)
