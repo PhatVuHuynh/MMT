@@ -720,7 +720,7 @@ class Peer:
             # print(share.status)
             # print(share.path)
             # print("-------")
-        # self.container=share_list
+        self.container=share_list
         return share_list
     
     def upload_folder(self, folder: Folder): #TODO: Gửi folder lên tracker
@@ -1119,6 +1119,7 @@ class Peer:
                 #     # self.request_download_folder(file)
                 else:
                     print("????")
+                    print(self.container)
                     for i in range(len(self.container)):
                     # for c in self.container:
                         print(self.container[i].name)
@@ -1126,6 +1127,7 @@ class Peer:
                         print(self.container[i].path)
                         if(file in self.container[i].name):
                             if(self.container[i].status == "Downloaded"):
+                                print("Downloaded 1")
                                 out = True
                                 break
                             else:
@@ -1136,6 +1138,7 @@ class Peer:
                                 #     name = f"{root_folder.name}{name}"
                                 #     root_folder = temp_folder.parent_folder
                                 #     temp_folder = root_folder
+                                print("Downloading 1")
                                 self.container[i].change_status("Downloading")
                                 temp_list.append(self.container[i])
                                 remove_list.append(file)
@@ -1150,6 +1153,7 @@ class Peer:
                                     print(path.status)
                                     print(path.path)
                                     if(path.status == "Downloaded"):
+                                        print("Downloaded 2")
                                         out = True
                                         break
                                     else:
@@ -1160,6 +1164,7 @@ class Peer:
                                         #     name = f"{root_folder.name}{name}"
                                         #     root_folder = temp_folder.parent_folder
                                         #     temp_folder = root_folder
+                                        print("Downloading 2")
                                         path.change_status("Downloading")
                                         temp_list.append(path)
                                         remove_list.append(file)
