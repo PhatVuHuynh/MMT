@@ -272,8 +272,8 @@ if __name__ == "__main__":
     tabs.place(relx=0, rely=0, relwidth=1, relheight=1)
     console = tk.Frame(tabs)   # first page, which would get widgets gridded into it
     treeview = tk.Frame(tabs)   # second page
+    tabs.add(treeview, text='Treeview')
     tabs.add(console, text='Console')
-    tabs.add(treeview, text='UI')
     
     
     #The console tab
