@@ -1578,7 +1578,7 @@ class Peer:
                 # self.sen_process (data="list", q=q)
                 with self.file_list_lock:
                     self.container = self.request_file_list()
-                print(self.container[0].path)
+                # print(self.container[0].path)
                 gui.event_generate("<<DisplayList>>", when="tail")
                 
             elif message == "UPLOAD FOLDER":
