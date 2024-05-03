@@ -925,7 +925,6 @@ class Peer:
             q.put(global_response)
             
             if self.gui: 
-                peer_to_tk_q.put(global_response)
                 self.gui.event_generate("<<CONSOLE>>")
             return
         elif cmd == "list":
@@ -1244,7 +1243,6 @@ class Peer:
         q.put(global_response)
         
         if self.gui: 
-            peer_to_tk_q.put(global_response)
             self.gui.event_generate("<<CONSOLE>>")
 
     def sen(self):
@@ -1580,8 +1578,9 @@ class Peer:
             elif message == "CONSOLE":
                 message = tk_to_peer_q.get() #block here
                 # self.sen_process (data=message, q=q)
-                thrSen = threading.Thread(target=self.sen_process, args=(message, q))
-                thrSen.start()
+                if self.gui:
+                    thrSen = threading.Thread(target=self.sen_process, args=(message, peer_to_tk_q))
+                    thrSen.start()
                 # response = q.get(timeout=5)
                 # peer_to_tk_q.put(response)
                 
