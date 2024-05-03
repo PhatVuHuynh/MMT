@@ -223,6 +223,8 @@ def show_login():
     login_frame.place(relx=0.5, rely=0.5, anchor='center')
     root.title("Login")
 
+def logout():
+    tk_to_peer_q.put("LOGOUT")
 
 if __name__ == "__main__":
     ipv4addr = socket.gethostbyname(socket.gethostname())
@@ -351,7 +353,7 @@ if __name__ == "__main__":
 
     # Create an 'Options' menu
     options_menu = tk.Menu(menu_bar, tearoff=0)
-    options_menu.add_command(label="Settings")
+    options_menu.add_command(label="Logout", command=logout)
     menu_bar.add_cascade(label="Options", menu=options_menu)
 
     # Create a 'Help' menu
@@ -364,6 +366,7 @@ if __name__ == "__main__":
     
     root.bind("<<ReceiveLogin>>", receive_validate_login)
     root.bind("<<DisplayList>>", display_list)
+    root.bind("<<LOGOUT SUCCESS>>", root.destroy)
     #create timer
     root.after(100, timer_trigger)
     request_list_flag = False

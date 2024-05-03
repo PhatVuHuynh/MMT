@@ -27,7 +27,7 @@ class Peer:
         # self.update = False
         # self.hashes = []
         # self.sizes = []
-
+        self.gui = None
         # connect to tracker
         if (tracker_host is not None) or (tracker_port is not None):
             try: 
@@ -923,6 +923,7 @@ class Peer:
             
             global_response = res
             q.put(global_response)
+            self.gui.event_generate("<<LOGOUT SUCCESS>>")
             return
         elif cmd == "list":
             #self.print_container()
@@ -1538,6 +1539,7 @@ class Peer:
         #     print(speed[0]," ",speed[1], end='\n')
 
     def run(self, gui:tk.Tk, tk_to_peer_q:queue.Queue, peer_to_tk_q:queue.Queue) -> None: #similar to send, wait for a command
+        self.gui = gui
         q = queue.Queue()
         while True:
             message = tk_to_peer_q.get() #block here
@@ -1562,7 +1564,10 @@ class Peer:
                     threading.Thread(target=self.accept_connections, daemon=True).start()
                 peer_to_tk_q.put(result)
                 gui.event_generate("<<ReceiveLogin>>", when="tail")
-                
+            
+            elif message == "LOGOUT":
+                self.sen_process (data="logout", q=q)
+
             elif message == "CONSOLE":
                 message = tk_to_peer_q.get() #block here
                 self.sen_process (data=message, q=q)
