@@ -613,7 +613,7 @@ class Peer:
                 if(contain.name == self.container[i].name):
                     #print(1)
                     if(self.container[i].status == "Downloaded"):
-                        print("Already downloaded.")
+                        # print("Already downloaded.")
                         return
                     else:
                     # if(c.status == "Downloading"):
@@ -629,7 +629,7 @@ class Peer:
                     if(path is not None):
                         #print(2)
                         if(path.status == "Downloaded"):
-                            print("Already downloaded.")
+                            # print("Already downloaded.")
                             return
                         else:
                         # if(c.status == "Downloading"):
@@ -640,7 +640,7 @@ class Peer:
                 if(contain.name == self.container[i].name):
                     #print(3)
                     if(self.container[i].status == "Downloaded"):
-                        print("Already downloaded.")
+                        # print("Already downloaded.")
                         return
                     else:
                     # if(c.status == "Downloading"):
@@ -656,7 +656,7 @@ class Peer:
                     if(path is not None):
                         #print(4)
                         if(path.status == "Downloaded"):
-                            print("Already downloaded.")
+                            # print("Already downloaded.")
                             return
                         else:
                         # if(c.status == "Downloading"):
@@ -1205,7 +1205,7 @@ class Peer:
             thrSen = threading.Thread(target=self.sen_process, args=(data, q))
             thrSen.start()
             # print("endloop")
-            # print(self.response)
+            print(self.response)
             answer = q.get()
             #print(answer)
             if(answer == "Disconnected from the server."):
