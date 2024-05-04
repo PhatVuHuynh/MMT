@@ -6,7 +6,6 @@ import socket
 import queue
 from tkinter import messagebox
 from peer import *
-# from tracker import *
 from tkinter import filedialog
 from folder import *
 
@@ -188,7 +187,6 @@ def on_right_click(event):
         # Get the item type (File or Folder) and Status
         item_values = tree.item(item_id, 'values')
         item_status = item_values[1]
-        # print(item_status)
         
         # Create a context menu
         context_menu = tk.Menu(tree, tearoff=0)
@@ -335,13 +333,7 @@ if __name__ == "__main__":
     tree.heading('Status', text='Status', anchor=tk.W)  # Add a heading for the new column
     tree.heading('Type', text='Type', anchor=tk.W)
     tree.heading('Path', text='Path', anchor=tk.W)
-    # folder1 = tree.insert('', 'end', text='Folder 1', values=('10 KB', 'Folder', 'Downloading'))
-    # sub_item1 = tree.insert(folder1, 'end', text='File 1', values=('2 KB', 'Text File', 'Completed'))
-    # sub_item2 = tree.insert(folder1, 'end', text='File 2', values=('3 KB', 'Image File', 'In Progress'))
-
-    # folder2 = tree.insert('', 'end', text='Folder 2', values=('20 KB', 'Folder', 'Paused'))
-    # sub_item3 = tree.insert(folder2, 'end', text='File 3', values=('5 KB', 'PDF File', 'Queued'))
-
+    
     # Bind right-click to on_right_click function
     tree.bind("<Button-3>", on_right_click)
     # Vertical scrollbar
@@ -365,10 +357,6 @@ if __name__ == "__main__":
     file_menu = tk.Menu(menu_bar, tearoff=0)
     file_menu.add_command(label="Share file", command=share_file)
     file_menu.add_command(label="Share folder", command=share_folder)
-    # file_menu.add_command(label="Upload file", command=upload_file)
-    # file_menu.add_command(label="Upload folder", command=upload_folder)
-    # file_menu.add_command(label="Update list", command=request_list)
-    # file_menu.add_separator()
     menu_bar.add_cascade(label="File", menu=file_menu)
 
     # Create an 'Options' menu

@@ -31,20 +31,12 @@ class File:
         self.parent_folder = parent_folder
         self.status = status
         
-        # global test
-        # if test: print (f"CREATING file name \"{self.name}\" with the path \"{self.path}\" in parent \"{self.parent_folder.name}\"")
-    # def __eq__(self, other):
-    #     if isinstance(other, File):
-    #         return self.path == other.path
-    #         # and self.path == other.path and self.parent_folder == other.parent_folder and self.file_hash == other.file_hash and self.status == other.status
-    #     return False
     def __eq__(self, other):
         if isinstance(other, File):
             if (self.name == other.name) and (self.file_hash == other.file_hash):
                 return True
             else: 
                 return False
-            # and self.path == other.path and self.parent_folder == other.parent_folder and self.file_hash == other.file_hash and self.status == other.status
         return False
 
     def set_treeview_id(self, new_id):
@@ -69,8 +61,6 @@ class File:
         # Update the file's path
         self.path = os.path.join(new_path, self.name)
         self.path = self.path.replace("\\", "/").strip()
-        # global test
-        # if test: print (f"The file name \"{self.name}\" now has the path \"{self.path}\"")
 
     def _calculate_hash(self, file_path) -> str:
         sha1 = hashlib.sha1()
@@ -83,7 +73,6 @@ class File:
                 piece_offset += len(piece)
                 piece = file.read(PIECE_SIZE)
         hash_sum = sha1.hexdigest()
-        # print(hash_sum)
         return hash_sum
     
     def detach_parent(self):
@@ -110,15 +99,8 @@ class Folder:
         self.files = []
         self.status = status
         self.treeview_id = None
-        # global test
-        # if test: print (f"CREATING folder name \"{self.name}\" with the path \"{self.path}\"")
+        
         self._initialize_folder_structure()
-
-    # def __eq__(self, other):
-    #     if isinstance(other, Folder):
-    #         return self.path == other.path
-    #         # and self.path == other.path and self.parent_folder == other.parent_folder and self.child_folders == other.child_folders and self.files == other.files and self.status == other.status
-    #     return False
 
     def __eq__(self, other):
         if isinstance(other, Folder):
@@ -178,7 +160,6 @@ class Folder:
     
     def update_folder(self, new_path):
         if self.status == "Downloaded":
-            # self.set_path(new_path)
             return
         
         for folder in self.child_folders:
@@ -190,19 +171,9 @@ class Folder:
         
         all_child_folders_downloaded = all(folder.status == "Downloaded" for folder in self.child_folders)
         if all_child_folders_downloaded and self.status != "Downloaded":
-            # or len(self.child_folders) == 0:
-            # print(self.name)
             self.status = "Downloaded"
             self.set_path(new_path)
-            # try:
-            #     # print(1)
-            #     if(os.path.exists(self.path) == False):
-            #         self.status = ""
-            #         self.remove_path()
-            # except:
-            #     self.status = ""
-            #     self.remove_path()
-        
+            
         # Check if the parent folder exists and update its status if needed
         if self.parent_folder is not None and self.parent_folder != self:
             self.parent_folder.update_folder(new_path)
@@ -226,9 +197,6 @@ class Folder:
         self.path = os.path.join(new_path, self.name)
         self.path = self.path.replace("\\", "/").strip()
         
-        # global test
-        # if test: print (f"The folder name \"{self.name}\" now has the path \"{self.path}\"")
-        
         # Update the paths of all files in this folder
         for file in self.files:
             file.set_path(self.path)
@@ -247,7 +215,6 @@ class Folder:
                 hash_sum = sha1.update(piece)
                 piece_offset += len(piece)
                 piece = file.read(PIECE_SIZE)
-        # hash_sum = hashlib.sha1(hash_sum.encode()).hexdigest()
         hash_sum = sha1.hexdigest()
         return hash_sum
 
@@ -256,20 +223,12 @@ class Folder:
         subfolder_names = subfolder_path.split("/")
         current_folder = self
 
-        # print("////////")
-        # print(subfolder_names)
-        # print("--------")
         if(len(subfolder_names) != 0):
             subfolder_names.remove(subfolder_names[0])
 
         for subfolder_name in subfolder_names:
             found_subfolder = None
-            # print(subfolder_name)
-            # print("+++++++++")
             for folder in current_folder.child_folders:
-                # print(folder.name)
-                # print(folder.name == subfolder_name)
-                # print("********")
                 if subfolder_name in folder.name:
                     found_subfolder = folder
                     break
@@ -292,13 +251,7 @@ class Folder:
             parts = file_path.split('/')
             file_name = parts[-1]
             subfolder_names = parts[:-1]
-            # for subfolder_name in subfolder_names:
-            #     subfolder_name += "/"
-            # print("////////")
-            # print(parts)
-            # print(file_name)
-            # print(subfolder_names)
-            # print("--------")
+            
             #First layer
             for file in self.files:
                 if (file.name == file_name) and isinstance(file, File) and ((hash is None) or (file.file_hash == hash)):
@@ -311,13 +264,7 @@ class Folder:
             found = False
             for subfolder_name in subfolder_names:
                 found = False
-                # subfolder_name = subfolder_name + "/"
-                # print(subfolder_name)
-                # print("+++++++++")
                 for folder in current_folder.child_folders:
-                    # print(folder.name)
-                    # print(folder.name == subfolder_name)
-                    # print("********")
                     if subfolder_name in folder.name:
                         current_folder = folder
                         found = True
@@ -404,49 +351,3 @@ def print_tree(folder:Folder, indent=''):
         else:
             sub_indent = indent + '│   '
         print_tree(child_folder, sub_indent)
-
-# import json
-
-# class Container:
-#     # init peer
-#     def __init__(self, name, path, type, hash="", size=None, pieces=None):
-#         self.name = name
-#         self.type = type
-#         self.path = path
-#         self.hash = ""
-#         self.size = None
-#         if(type == "file"):
-#             self.hash = hash
-#             self.size = size
-#             self.pieces = pieces
-#         # self.files = None
-
-#         # if(type == 'folder'):
-#         #     self.files = []
-#     def toJSON(self):
-#         return json.dumps(
-#             self,
-#             default=lambda o: o.__dict__, 
-#             sort_keys=True,
-#             )
-    
-#     def get_name(self):
-#         return self.name
-    
-#     def get_type(self):
-#         return self.type
-    
-#     def get_hash(self):
-#         return self.hash
-    
-#     def get_path(self):
-#         return self.path
-    
-#     def get_size(self):
-#         return self.size
-    
-#     def get_pieces(self):
-#         return self.pieces
-    
-#     def set_pieces(self, pieces):
-#         self.pieces = pieces
