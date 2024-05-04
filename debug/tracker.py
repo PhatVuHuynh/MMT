@@ -38,8 +38,8 @@ class Tracker:
                 try:
                     data = client_socket.recv(PIECE_SIZE)
                 except:
-                    print(self.peers)
                     self.peers.pop(addr)
+                    print(self.peers)
                     return
                 
                 if not data:
