@@ -361,13 +361,8 @@ if __name__ == "__main__":
 
     # Create an 'Options' menu
     options_menu = tk.Menu(menu_bar, tearoff=0)
-    options_menu.add_command(label="Settings")
+    options_menu.add_command(label="Logout", command=lambda: root.destroy())
     menu_bar.add_cascade(label="Options", menu=options_menu)
-
-    # Create a 'Help' menu
-    help_menu = tk.Menu(menu_bar, tearoff=0)
-    help_menu.add_command(label="About")
-    menu_bar.add_cascade(label="Help", menu=help_menu)
 
     # Place the menu bar at the top of the window
     root.config(menu=menu_bar)

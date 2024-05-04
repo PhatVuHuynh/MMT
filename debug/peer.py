@@ -923,11 +923,9 @@ class Peer:
                     end_time = time.time()
 
                     total_time = round(end_time - start_time, 2)
-                    minute = total_time / 60
-                    second = total_time - minute * 60
                     
                     if(hash_sum == hash):
-                        print(f"File {file_name} has been downloaded within {minute}:{second}.")
+                        print(f"File {file_name} has been downloaded within {total_time}.")
                     else:
                         print(f"Hash difference.")
                 except Exception as e:
